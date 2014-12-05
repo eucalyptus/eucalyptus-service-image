@@ -33,9 +33,10 @@ mkdir -p build/{BUILD,BUILDROOT,SRPMS,RPMS,SOURCES,SPECS}
 
 cp *.spec build/SPECS
 cp *.tgz *.ks scripts/build-eustore-tarball.sh IMAGE-LICENSE \
-	euca-install-imaging-worker build/SOURCES
+	build/SOURCES
 
 SPECFILE=$(echo -n build/SPECS/*.spec)
+echo "SPECFILE=$SPECFILE"
 
 insert_global $SPECFILE dist .el6
 insert_global $SPECFILE build_id $BUILD_ID
@@ -46,7 +47,7 @@ insert_global $SPECFILE build_version $BUILD_VERSION
 [ "$1" = "devel" ] && insert_global $SPECFILE devbuild 1
 
 rpmbuild --define "_topdir `pwd`/build" \
-    -ba build/SPECS/eucalyptus-imaging-worker-image.spec || exit 1
+    -ba build/SPECS/eucalyptus-service-image.spec || exit 1
 
 mkdir -p results
 find build/ -name "*.rpm" -exec mv {} results/ \;

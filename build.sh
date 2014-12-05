@@ -1,4 +1,8 @@
-# todo: this should come from Jenkins:
+# prerequisites: for this script to work, install the following packages:
+#
+#  virt-install python-jinja2 python-jinja2-26 qemu-kvm libvirt createrepo libguestfs-tools rpm-build
+#
+# if building in Jenskins, comment out this:
 export BUILD_ID=007
 
 export GIT_COMMIT_SHORT=`git rev-parse --short HEAD`
