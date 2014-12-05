@@ -1,0 +1,213 @@
+# Copyright 2010, Jeremy Katz
+# Jeremy Katz <katzj@fedoraproject.org>
+#
+# Copyright 2009-2013 Eucalyptus Systems, Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 3 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see http://www.gnu.org/licenses/.
+#
+# Please contact Eucalyptus Systems, Inc., 6755 Hollister Ave., Goleta
+# CA 93117, USA or visit http://www.eucalyptus.com/licenses/ if you need
+# additional information or have any questions.
+
+#
+# Eucalyptus Service Image
+# 
+# This image is meant to be distributed along with Eucalyptus
+#
+lang en_US.UTF-8
+keyboard us
+skipx
+timezone UTC
+auth --useshadow --passalgo=sha512
+selinux --disabled
+firewall --disabled
+bootloader --timeout=1  --append="xen_blkfront.sda_is_xvda=1 serial=tty0 console=ttyS0,115200n8"
+network --bootproto=dhcp --device=eth0 --onboot=on
+services --enabled=network,ntpd,ntpdate
+part / --size 1536 --grow --fstype ext3
+zerombr
+rootpw --iscrypted $1$HEVobWzu$6d5IWr.r7Df15XHLFCggW/
+reboot
+#
+# Templated Repository Entries 
+{% for (name, urltype, url) in repos %}
+repo --name={{ name }} --{{ urltype }}={{ url }}
+{% endfor %}
+
+#
+#
+# Add all the packages after the base packages
+#
+%packages --nobase --excludedocs --instLangs=en
+@core
+audit
+bash
+chkconfig
+coreutils
+curl
+e2fsprogs
+grub
+kernel-xen
+openssh-server
+passwd
+policycoreutils
+rootfiles
+sudo
+system-config-firewall-base
+ntp
+ntpdate
+createrepo
+yum-utils
+epel-release
+eucalyptus-service-image-release
+
+#
+# Package exclusions
+-plymouth
+-plymouth-system-theme
+-efibootmgr
+-acl
+-atmel-firmware
+-b43-openfwwf
+-cyrus-sasl
+-postfix
+-sysstat
+-xorg-x11-drv-ati-firmware
+-yum-utils
+-ipw2100-firmware
+-ipw2200-firmware
+-ivtv-firmware
+-iwl1000-firmware
+-iwl3945-firmware
+-iwl4965-firmware
+-iwl5000-firmware
+-iwl5150-firmware
+-iwl6000-firmware
+-iwl6050-firmware
+-libertas-usb8388-firmware
+-rt61pci-firmware
+-rt73usb-firmware
+-mysql-libs
+-zd1211-firmware
+-ql2100-firmware
+-ql2200-firmware
+-ql23xx-firmware
+-ql2400-firmware
+-ql2500-firmware
+-aic94xx-firmware
+-iwl6000g2a-firmware
+-iwl100-firmware
+-bfa-firmware
+
+%end
+
+%post --erroronfail
+#
+# Setup console
+cat > /etc/init/ttyS0.conf <<EOF
+stop on runlevel[016]
+start on runlevel[345]
+respawn
+instance /dev/ttyS0
+exec /sbin/mingetty /dev/ttyS0
+EOF
+
+sed -i 's/rhgb quiet//' /boot/grub/grub.conf
+sed -i 's/hiddenmenu//' /boot/grub/grub.conf
+sed -i 's/splashimage.*//' /boot/grub/grub.conf
+#
+# Fix sudo settings so that servo is able to start haproxy without a tty
+sed -i '/requiretty/s/^/#/' /etc/sudoers
+sed -i '/!visiblepw/s/^/#/' /etc/sudoers
+
+#
+# Disable zeroconf
+echo "NOZEROCONF=yes" >> /etc/sysconfig/network
+
+#
+# Lock root login (just in case)
+#passwd -l root
+
+#
+# Update SSHD configuration
+sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+
+cat >> /etc/ssh/sshd_config <<EOF
+UseDNS no
+PermitRootLogin without-password
+EOF
+
+cp /etc/yum.conf /tmp/yum-tmp.conf
+sed -i 's/cachedir=.*/cachedir=\/dev\/null/' /tmp/yum-tmp.conf
+cat >> /tmp/yum-tmp.conf <<EOF
+
+[eucalyptus-devel]
+name=eucalyptus-devel
+baseurl=http://packages.release.eucalyptus-systems.com/yum/tags/eucalyptus-devel/centos/6/x86_64/
+enabled=1
+gpgcheck=0
+EOF
+
+mkdir -p /var/lib/eucalyptus-service-image/packages
+pushd /var/lib/eucalyptus-service-image/packages
+yumdownloader -c /tmp/yum-tmp.conf --resolve eucalyptus-imaging-worker load-balancer-servo 
+createrepo .
+popd
+rm /tmp/yum-tmp.conf
+
+cat >> /etc/rc.d/rc.local <<EOF
+#
+# Script content based on rc.local in starter emis
+# http://emis.eucalyptus.com
+#
+
+# Create the host keys for the SSH server
+for key_type in rsa dsa; do
+    if [ ! -f /etc/ssh/ssh_host_\${key_type}_key ]; then
+        ssh-keygen -t \${key_type} -N '' -f /etc/ssh/ssh_host_\${key_type}_key
+    fi
+done
+
+if [ ! -d /root/.ssh ]; then
+    mkdir -p /root/.ssh
+    chmod 700 /root/.ssh
+fi
+
+# Get public key for debugging load balancer (if set)
+# Setting this is available via the property:
+# loadbalancing.loadbalancer_vm_keyname
+echo >> /root/.ssh/authorized_keys
+chmod 600 authorized_keys
+curl --retry 3 --retry-delay 10 -m 45 -s http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key | grep 'ssh-rsa' >> /root/.ssh/authorized_keys
+echo "AUTHORIZED_KEYS:"
+echo "************************"
+cat /root/.ssh/authorized_keys
+echo "************************"
+
+# set the hostname to something sensible
+META_HOSTNAME="\$(curl -s http://169.254.169.254/latest/meta-data/local-hostname)"
+META_IP="\$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)"
+
+if [ \${META_HOSTNAME} = \${META_IP} ]; then
+        META_HOSTNAME="\$(echo \$META_HOSTNAME | sed -e 's/\./-/g' | xargs -I {} echo "ip-{}")"
+fi
+
+hostname \$META_HOSTNAME
+echo >> /etc/hosts
+echo "\${META_IP}   \${META_HOSTNAME}" >> /etc/hosts
+
+exit 0
+EOF
+
+%end
+
