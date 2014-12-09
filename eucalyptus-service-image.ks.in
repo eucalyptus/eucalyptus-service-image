@@ -69,6 +69,7 @@ ntpdate
 createrepo
 yum-utils
 epel-release
+cloud-init
 eucalyptus-service-image-release
 
 #
@@ -83,7 +84,6 @@ eucalyptus-service-image-release
 -postfix
 -sysstat
 -xorg-x11-drv-ati-firmware
--yum-utils
 -ipw2100-firmware
 -ipw2200-firmware
 -ivtv-firmware
@@ -111,7 +111,9 @@ eucalyptus-service-image-release
 
 %end
 
-%post --erroronfail
+%post --erroronfail --log=/root/kickstart-post.log
+set -x
+
 #
 # Setup console
 cat > /etc/init/ttyS0.conf <<EOF
@@ -148,7 +150,7 @@ PermitRootLogin without-password
 EOF
 
 cp /etc/yum.conf /tmp/yum-tmp.conf
-sed -i 's/cachedir=.*/cachedir=\/dev\/null/' /tmp/yum-tmp.conf
+sed -i 's/cachedir=.*/cachedir=/' /tmp/yum-tmp.conf
 cat >> /tmp/yum-tmp.conf <<EOF
 
 [eucalyptus-devel]
@@ -156,58 +158,19 @@ name=eucalyptus-devel
 baseurl=http://packages.release.eucalyptus-systems.com/yum/tags/eucalyptus-devel/centos/6/x86_64/
 enabled=1
 gpgcheck=0
+
+[euca2ools]
+name=Euca2ools
+baseurl=http://packages.release.eucalyptus-systems.com/yum/builds/euca2ools/branch/master/centos/6/x86_64
+enabled=1
 EOF
 
 mkdir -p /var/lib/eucalyptus-service-image/packages
 pushd /var/lib/eucalyptus-service-image/packages
-yumdownloader -c /tmp/yum-tmp.conf --resolve eucalyptus-imaging-worker load-balancer-servo 
+yumdownloader -c /tmp/yum-tmp.conf --resolve eucalyptus-imaging-worker load-balancer-servo euca2ools
 createrepo .
 popd
 rm /tmp/yum-tmp.conf
-
-cat >> /etc/rc.d/rc.local <<EOF
-#
-# Script content based on rc.local in starter emis
-# http://emis.eucalyptus.com
-#
-
-# Create the host keys for the SSH server
-for key_type in rsa dsa; do
-    if [ ! -f /etc/ssh/ssh_host_\${key_type}_key ]; then
-        ssh-keygen -t \${key_type} -N '' -f /etc/ssh/ssh_host_\${key_type}_key
-    fi
-done
-
-if [ ! -d /root/.ssh ]; then
-    mkdir -p /root/.ssh
-    chmod 700 /root/.ssh
-fi
-
-# Get public key for debugging load balancer (if set)
-# Setting this is available via the property:
-# loadbalancing.loadbalancer_vm_keyname
-echo >> /root/.ssh/authorized_keys
-chmod 600 authorized_keys
-curl --retry 3 --retry-delay 10 -m 45 -s http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key | grep 'ssh-rsa' >> /root/.ssh/authorized_keys
-echo "AUTHORIZED_KEYS:"
-echo "************************"
-cat /root/.ssh/authorized_keys
-echo "************************"
-
-# set the hostname to something sensible
-META_HOSTNAME="\$(curl -s http://169.254.169.254/latest/meta-data/local-hostname)"
-META_IP="\$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)"
-
-if [ \${META_HOSTNAME} = \${META_IP} ]; then
-        META_HOSTNAME="\$(echo \$META_HOSTNAME | sed -e 's/\./-/g' | xargs -I {} echo "ip-{}")"
-fi
-
-hostname \$META_HOSTNAME
-echo >> /etc/hosts
-echo "\${META_IP}   \${META_HOSTNAME}" >> /etc/hosts
-
-exit 0
-EOF
 
 %end
 

@@ -3,7 +3,7 @@
 #  virt-install python-jinja2 python-jinja2-26 qemu-kvm libvirt createrepo libguestfs-tools rpm-build
 #
 # if building in Jenskins, comment out this:
-export BUILD_ID=007
+export BUILD_NUMBER=007
 
 export GIT_COMMIT_SHORT=`git rev-parse --short HEAD`
 export GIT_COMMIT_COUNT="$(git log --pretty=format:'' HEAD | wc -l)"
