@@ -172,5 +172,8 @@ createrepo .
 popd
 rm /tmp/yum-tmp.conf
 
+#add cloud-user to sudo
+echo "cloud-user ALL = NOPASSWD: ALL" >> /etc/sudoers
+
 %end
 
