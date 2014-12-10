@@ -128,7 +128,7 @@ sed -i 's/rhgb quiet//' /boot/grub/grub.conf
 sed -i 's/hiddenmenu//' /boot/grub/grub.conf
 sed -i 's/splashimage.*//' /boot/grub/grub.conf
 #
-# Fix sudo settings so that servo is able to start haproxy without a tty
+# Fix sudo settings so that servieces are able to run sudo without a tty
 sed -i '/requiretty/s/^/#/' /etc/sudoers
 sed -i '/!visiblepw/s/^/#/' /etc/sudoers
 
@@ -138,7 +138,7 @@ echo "NOZEROCONF=yes" >> /etc/sysconfig/network
 
 #
 # Lock root login (just in case)
-#passwd -l root
+passwd -l root
 
 #
 # Update SSHD configuration
@@ -172,7 +172,7 @@ createrepo .
 popd
 rm /tmp/yum-tmp.conf
 
-#add cloud-user to sudo
+# Add cloud-user to sudo
 echo "cloud-user ALL = NOPASSWD: ALL" >> /etc/sudoers
 
 %end
