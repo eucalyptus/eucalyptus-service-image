@@ -13,6 +13,9 @@ Source0:        %{name}-%{build_version}%{?build_id:-%build_id}.tgz
 Source1:        IMAGE-LICENSE
 # Kickstart used to build the image
 Source2:        %{name}.ks
+# Installation script
+Source3:        euca-install-imaging-worker
+Source4:        euca-install-load-balancer
 
 Requires: euca2ools >= 3.1.0
 Requires: python-boto
@@ -32,8 +35,8 @@ cp -p %{SOURCE1} %{SOURCE2} %{_builddir}
 install -m 755 -d $RPM_BUILD_ROOT%{_datarootdir}/%{name}
 install -m 644 %{SOURCE0} $RPM_BUILD_ROOT%{_datarootdir}/%{name}
 install -m 755 -d $RPM_BUILD_ROOT/usr/bin
-install -m 755 euca-install-imaging-worker $RPM_BUILD_ROOT/usr/bin
-install -m 755 euca-install-load-balancer $RPM_BUILD_ROOT/usr/bin
+install -m 755 %{SOURCE3} $RPM_BUILD_ROOT/usr/bin
+install -m 755 %{SOURCE4} $RPM_BUILD_ROOT/usr/bin
 
 %files
 %defattr(-,root,root,-)
