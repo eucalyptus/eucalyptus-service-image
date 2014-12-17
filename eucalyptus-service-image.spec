@@ -31,6 +31,9 @@ cp -p %{SOURCE1} %{SOURCE2} %{_builddir}
 %install
 install -m 755 -d $RPM_BUILD_ROOT%{_datarootdir}/%{name}
 install -m 644 %{SOURCE0} $RPM_BUILD_ROOT%{_datarootdir}/%{name}
+install -m 755 -d $RPM_BUILD_ROOT/usr/bin
+install -m 755 euca-install-imaging-worker $RPM_BUILD_ROOT/usr/bin
+install -m 755 euca-install-load-balancer $RPM_BUILD_ROOT/usr/bin
 
 %files
 %defattr(-,root,root,-)
