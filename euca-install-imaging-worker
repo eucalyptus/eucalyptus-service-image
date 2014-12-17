@@ -213,7 +213,7 @@ class ImagingServiceManager(object):
             print "Error: Imaging Worker unable to retrieve uploaded image manifest."
             sys.exit(1)
 
-        register_cmd = "euca-register {0} --name {1} -d '{2}'" \
+        register_cmd = "euca-register {0} --name {1} -d '{2}' " \
                        "--virtualization-type hvm".format(manifest, "eucalyptus-imaging-worker-image-v"
                         + str(self._get_next_version()), time.strftime(
                                 'Installed on %Y-%m-%d at %H:%M:%S %Z'))
