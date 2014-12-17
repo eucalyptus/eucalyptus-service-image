@@ -42,6 +42,8 @@ install -m 755 %{SOURCE4} $RPM_BUILD_ROOT/usr/bin
 %defattr(-,root,root,-)
 %doc IMAGE-LICENSE %{name}.ks
 %{_datarootdir}/%{name}
+/usr/bin/euca-install-imaging-worker
+/usr/bin/euca-install-load-balancer
 
 %changelog
 * Fri Dec 05 2014 Eucalyptus Release Engineering <support@eucalyptus.com> - 0.1-0
