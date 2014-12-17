@@ -41,6 +41,8 @@ import subprocess
 import sys
 import boto
 import euca2ools
+import time
+
 (major, minor, patch) = euca2ools.__version__.split('-')[0].split('.')
 if int(major) < 3 or (int(major) >= 3 and int(minor) < 1):
     print >> sys.stderr, "euca2ools version 3.1.0 or newer required."
