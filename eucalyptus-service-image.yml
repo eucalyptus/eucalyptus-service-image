@@ -1,0 +1,34 @@
+name: eucalyptus-service-workers
+version: 0
+release: 0
+arch: x86_64
+description: >
+    This image is capable of running several of Eucalyptus's back end
+    services.  After this image is uploaded it can be registered
+    multiple times to perform specific functions -- the cloud will
+    activate the appropriate services as instances run.
+profiles:
+    loadbalancing-worker:
+        bundle:
+        register:
+            virtualization-type: hvm
+        tag:
+            euca:service-name: loadbalancing.worker
+            euca:service-api-version: 1
+        provides: eucalyptus-loadbalancing-worker = 1
+    imaging-worker:
+        bundle:
+        register:
+            virtualization-type: hvm
+        tag:
+            euca:service-name: imaging.worker
+            euca:service-api-version: 1
+        provides: eucalyptus-imaging-worker = 1
+    database-worker:
+        bundle:
+        register:
+            virtualization-type: hvm
+        tag:
+            euca:service-name: database.worker
+            euca:service-api-version: 1
+        provides: eucalyptus-database-worker = 1
