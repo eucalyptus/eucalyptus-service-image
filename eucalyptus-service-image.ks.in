@@ -167,7 +167,7 @@ EOF
 
 mkdir -p /var/lib/eucalyptus-service-image/packages
 pushd /var/lib/eucalyptus-service-image/packages
-yumdownloader -c /tmp/yum-tmp.conf --resolve eucalyptus-imaging-worker load-balancer-servo euca2ools
+yumdownloader -c /tmp/yum-tmp.conf --resolve eucalyptus-imaging-worker load-balancer-servo eucalyptus-database-server euca2ools
 createrepo .
 popd
 rm /tmp/yum-tmp.conf

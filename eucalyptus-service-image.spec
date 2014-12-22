@@ -24,6 +24,7 @@ Obsoletes:      eucalyptus-imaging-worker-image < 1.1
 Obsoletes:      eucalyptus-load-balancer-image < 1.2
 Provides:       euclayptus-imaging-worker-image
 Provides:       euclayptus-load-balancer-image
+Provides:       euclayptus-database-server-image
 
 
 %description
