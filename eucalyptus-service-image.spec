@@ -1,3 +1,5 @@
+%{!?build_version: %global build_version 0}
+
 Name:           eucalyptus-service-image%{?devbuild:-devel}
 Version:        %{build_version}
 Release:        0%{?build_id:.%build_id}%{?dist}
@@ -19,6 +21,14 @@ Source4:        euca-install-load-balancer
 
 Requires: euca2ools >= 3.1.0
 Requires: python-boto
+
+%if 0%{!?devbuild:1}
+Obsoletes:      eucalyptus-imaging-worker-image < 1.1
+Obsoletes:      eucalyptus-load-balancer-image < 1.2
+Provides:       eucalyptus-imaging-worker-image
+Provides:       eucalyptus-load-balancer-image
+%endif
+
 
 %description
 This package contains a machine image for use in Eucalyptus to
@@ -46,6 +56,5 @@ install -m 755 %{SOURCE4} $RPM_BUILD_ROOT/usr/bin
 /usr/bin/euca-install-load-balancer
 
 %changelog
-* Fri Dec 05 2014 Eucalyptus Release Engineering <support@eucalyptus.com> - 0.1-0
+* Fri Dec 05 2014 Eucalyptus Release Engineering <support@eucalyptus.com> - 0.1
 - Created
-
