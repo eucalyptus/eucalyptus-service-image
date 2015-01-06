@@ -56,5 +56,5 @@ install -m 755 %{SOURCE4} $RPM_BUILD_ROOT/usr/bin
 /usr/bin/euca-install-load-balancer
 
 %changelog
-* Fri Dec 05 2014 Eucalyptus Release Engineering <support@eucalyptus.com> - 0.1
+* Fri Dec 05 2014 Eucalyptus Release Engineering <support@eucalyptus.com> - 0
 - Created
