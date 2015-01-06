@@ -13,7 +13,9 @@ else
     export BUILD_ID=$GIT_COMMIT_COUNT.$BUILD_NUMBER
 fi
 export BASENAME=eucalyptus-service-image
-export BUILD_VERSION=$(cat VERSION)
+if [ -z "$BUILD_VERSION" ]; then
+    export BUILD_VERSION=0.0
+fi
 export KSFILE=$BASENAME.ks
 export IMGFILE=$BASENAME.img
 export BUILD_MIRROR_TYPE=internal-ci
