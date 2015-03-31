@@ -178,6 +178,8 @@ class ServiceImageManager(object):
         print "Registered image: " + emi_id
         remove_tarball_cmd = "rm -f {0}".format(image_file)
         self._run_command(remove_tarball_cmd)
+        self.enable(emi_id, 'imaging')
+        self.enable(emi_id, 'loadbalancing')
         return emi_id
 
     def get_enabled(self):
@@ -194,6 +196,20 @@ class ServiceImageManager(object):
                 return imageid
         except OSError:
             print >> sys.stderr, "Error: failed to get Imaging Woker EMI."
+            sys.exit(1)
+
+    def enable(self, imageid, service):
+        env = self._get_env()
+        service_property = 'services.{0}.worker.image={1}'.format(service, imageid)
+        cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-modify-property'), '-p', service_property]
+        try:
+            subprocess.check_call(cmd, env=env)
+        except (OSError, subprocess.CalledProcessError):
+            print >> sys.stderr, "Error: failed to set Imaging Service EMI."
+            print >> sys.stderr, "You'll have to enable it manually."
+            print >> sys.stderr
+            print >> sys.stderr, "To enable imaging service support, run this command:"
+            print >> sys.stderr, " ".join(cmd)
             sys.exit(1)
 
     @classmethod
