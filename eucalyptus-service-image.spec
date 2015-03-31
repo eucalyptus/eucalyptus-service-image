@@ -48,7 +48,7 @@ install -m 755 -d $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images
 install -m 755 -d $RPM_BUILD_ROOT/usr/bin
 install -m 755 %{SOURCE4} $RPM_BUILD_ROOT/usr/bin
 install -m 755 %{SOURCE5} $RPM_BUILD_ROOT/usr/bin
-install -m 644 %{SOURCE0} $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images
+install -m 644 %{SOURCE0} $RPM_BUILD_ROOT%{_datarootdir}/%{name}
 
 
 %files
@@ -59,7 +59,7 @@ install -m 644 %{SOURCE0} $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images
 /usr/share/eucalyptus/service-images
 /usr/bin/euca-describe-service-images
 /usr/bin/euca-install-service-image
-
+%{_datarootdir}/%{name}
 
 %changelog
 * Fri Dec 05 2014 Eucalyptus Release Engineering <support@eucalyptus.com> - 0.1-0
