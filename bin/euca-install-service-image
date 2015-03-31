@@ -1,0 +1,281 @@
+#!/usr/bin/env python
+#
+# Software License Agreement (BSD License)
+#
+# Copyright (c) 2015, Eucalyptus Systems, Inc.
+# All rights reserved.
+#
+# Redistribution and use of this software in source and binary forms, with or
+# without modification, are permitted provided that the following conditions
+# are met:
+#
+#   Redistributions of source code must retain the above
+#   copyright notice, this list of conditions and the
+#   following disclaimer.
+#
+#   Redistributions in binary form must reproduce the above
+#   copyright notice, this list of conditions and the
+#   following disclaimer in the documentation and/or other
+#   materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+
+import argparse
+import copy
+import glob
+import logging
+import os
+import re
+import subprocess
+import sys
+import boto
+import euca2ools
+import rpm
+
+(major, minor, patch) = euca2ools.__version__.split('-')[0].split('.')
+if int(major) < 3 or (int(major) >= 3 and int(minor) < 1):
+    print >> sys.stderr, "euca2ools version 3.1.0 or newer required."
+    sys.exit(1)
+
+from requestbuilder.exceptions import ServiceInitError
+
+
+DEFAULT_IMAGE_LOCATION = '/usr/share/eucalyptus-service-image'
+
+
+class ServiceImageManager(object):
+    IMAGE_NAME = 'eucalyptus-service-image'
+    IMAGE_RE = re.compile('^eucalyptus-service-image')
+    # HACK this info should be shared
+    PROVIDED_SERVICES = ['imaging', 'loadbalancing', 'database']
+
+    def __init__(self):
+        self._check_environment()
+        self._ec2 = boto.connect_ec2_endpoint(os.environ.get("EC2_URL"))
+        self._populate_images()
+
+    def _check_environment(self):
+        env = self._get_env()
+        if not "EC2_URL" in env:
+            print >> sys.stderr, "Error: Unable to find EC2_URL"
+            print >> sys.stderr, "Make sure your eucarc is sourced."
+            sys.exit(1)
+        cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-modify-property')]
+        try:
+            with open(os.devnull, 'w') as nullfile:
+                subprocess.call(cmd, env=env, stdout=nullfile)
+        except OSError:
+            print >> sys.stderr, "Error: cannot find 'euca-modify-property' binary."
+            print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
+            sys.exit(1)
+
+    def _populate_images(self):
+        self.images = {}
+        for image in self._ec2.get_all_images():
+            name = image.name
+            if self.IMAGE_RE.search(name):
+                version = self._get_image_version()
+                if not version in self.images:
+                    self.images[version] = []
+                self.images[version].append(image)
+
+    def _split_location(self, location):
+        matches = re.match(r'(.+)/(.+)\.manifest\.xml', location)
+        return matches.groups()
+
+    def _get_env(self):
+        return os.environ.copy()
+
+    def _remove(self, images, force=False):
+        removed = []
+        enabled_image = self.get_enabled()
+        for image_set in images.itervalues():
+            should_remove = True
+            if not force:
+                for image in image_set:
+                    imageid = image.id
+                    if imageid == enabled_image:
+                        print >> sys.stderr, "Warning: skipping enabled image."
+                        print >> sys.stderr, "Use '--force' to remove it anyway."
+                        should_remove = False
+
+            if should_remove:
+                for image in image_set:
+                    imageid = image.id
+                    deregister_cmd = "euca-deregister {0}".format(imageid)
+                    deregister_output = subprocess.Popen(deregister_cmd, stdout=subprocess.PIPE,
+                                                            stderr=subprocess.PIPE, shell=True)
+                    deregister_output.wait()
+                    location = image.location
+                    (bucket, prefix) = self._split_location(location)
+                    delete_bundle_cmd = "euca-delete-bundle -b {0}/{1}".format(bucket, prefix)
+                    delete_bundle_output = subprocess.Popen(delete_bundle_cmd, stdout=subprocess.PIPE,
+                                                            stderr=subprocess.PIPE, shell=True)
+                    delete_bundle_output.wait()
+                    removed.append(imageid)
+        return removed
+
+    def _run_command(self, command):
+        pipe = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        pipe.wait()
+        stdout = pipe.stdout.read()
+        stderr = pipe.stderr.read()
+        if pipe.returncode > 0:
+            print "Error: Unable to install imaging worker due to:\n" \
+                                 + stdout + stderr
+            sys.exit(1)
+        return (stdout, stderr)
+
+    def remove_all(self, force=False):
+        return self._remove(self.images, force=force)
+
+    def remove_old(self, force=False):
+        old_images = copy.deepcopy(self.images)
+        newest_key = sorted(old_images)[-1]
+        del old_images[newest_key]
+        return self._remove(old_images, force=force)
+
+    def _get_image_version(self):
+        ts = rpm.TransactionSet()
+        matches = ts.dbMatch('name', self.IMAGE_NAME)
+        for package in matches:
+            return package['version']
+
+    def install(self, tarball):
+        ### Decompress image
+        decompress_cmd = "/bin/tar xzfv {0}".format(tarball)
+        print "Decompressing tarball: " + tarball
+        decompress_stdout, decompress_stderr = self._run_command(decompress_cmd)
+        ### Bundle and upload image
+        image_file = decompress_stdout.strip()
+
+        version_string = "v{0}".format(self._get_image_version())
+        bucket = self.IMAGE_NAME + '-' + version_string
+        image_name = self.IMAGE_NAME + "-" + version_string
+        print "Bundling, uploading and registering image to bucket: " + bucket
+        install_cmd = "euca-install-image -b {0} -i {1} " \
+                      "-r x86_64 -n {2} --virt hvm".format(bucket, image_file,
+                                                           image_name)
+        bundle_stdout, bundle_stderr = self._run_command(install_cmd)
+        # HACK: Popping the second to
+        #       last line off of install (ie the IMAGE line)
+        emi_id = bundle_stdout.split('\n')[-2].split().pop()
+        tags = {'type': self.IMAGE_NAME,
+                'version': version_string,
+                'provides': ",".join(self.PROVIDED_SERVICES)}
+        self._ec2.create_tags([emi_id], tags=tags)
+        print "Registered image: " + emi_id
+        remove_tarball_cmd = "rm -f {0}".format(image_file)
+        self._run_command(remove_tarball_cmd)
+        return emi_id
+
+    def get_enabled(self):
+        try:
+            env = self._get_env()
+            cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-describe-properties'),
+                   'services.imaging.worker.image']
+            out = subprocess.Popen(cmd, env=env,
+                                   stdout=subprocess.PIPE).communicate()[0]
+            imageid = out.split()[-1]
+            if imageid == "NULL":
+                return None
+            else:
+                return imageid
+        except OSError:
+            print >> sys.stderr, "Error: failed to get Imaging Woker EMI."
+            sys.exit(1)
+
+    @classmethod
+    def create(cls):
+        #
+        # Quiet the attempts to get logger for Walrus
+        #
+        class NullHandler(logging.Handler):
+            def emit(self, record):
+                pass
+        logging.getLogger("Walrus").addHandler(NullHandler())
+
+        try:
+            return cls()
+        except ServiceInitError as err:
+            print >> sys.stderr, str(err)
+            sys.exit(1)
+
+
+if __name__ == "__main__":
+    description = '''
+    Imaging Service Installation Tool:
+
+    This tool provides an easy way to install a Eucalyptus Imaging
+    Service image.  Normally, you'll want to pass '--install-default'
+    to install the latest Imaging Service image and register it with
+    Eucalyptus. You may next want to pass '--remove-old' if you need
+    to clean up older versions of the Imaging Service image.
+
+    Installed Imaging Service images will be marked with a "version" number
+    that differentiates one installed Imaging Service from another. The
+    larger the "version", the more recently the Imaging Service has been
+    installed.
+    '''
+
+    epilog = '''
+    NOTE: In order to use this you MUST have cloud administrator
+    credentials sourced in your environment (i.e., run the command
+    '. /my/cred/path/eucarc').'''
+
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description=description, epilog=epilog)
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-t', '--tarball', metavar='TARBALL',
+                       help='Imaging Service tarball to install')
+    group.add_argument('--install-default', action='store_true',
+                       help='''This option must be supplied if you
+                       would like to install the default tarball''')
+    group.add_argument('--remove-old', action='store_true',
+                       help='''Remove OLD Imaging Service images. Your most
+                       recently installed Imaging Service images and your
+                       currently enabled Imaging Service image will not be
+                       removed. Most of the time, these will be the
+                       same Imaging Service image.''')
+    group.add_argument('--remove-all', action='store_true',
+                       help='''Remove ALL Imaging Service images. The
+                       currently enabled Imaging Service image will be skipped
+                       unless '--force' is passed as well.''')
+    parser.add_argument('--force', action='store_true', help='''Force
+                        an operation. This will force removal of
+                        enabled Imaging Service.''')
+
+    args = parser.parse_args()
+    ism = ServiceImageManager.create()
+
+    if args.tarball:
+        ism.install(args.tarball)
+    elif args.install_default:
+        print 'Installing Service Image...'
+        try:
+            tarball = glob.glob('{0}*/*.tgz'.format(DEFAULT_IMAGE_LOCATION))[0]
+            print 'Found tarball {0}'.format(tarball)
+            ism.install(tarball)
+        except IndexError:
+            print >> sys.stderr, "Error: failed to find a Imaging Service tarball."
+            print >> sys.stderr, "Try supplying one on the command line with '-t'."
+            sys.exit(1)
+    elif args.remove_old:
+        imageids = ism.remove_old(force=args.force)
+        for imageid in imageids:
+            print "Removed {0}".format(imageid)
+    elif args.remove_all:
+        imageids = ism.remove_all(force=args.force)
+        for imageid in imageids:
+            print "Removed {0}".format(imageid)

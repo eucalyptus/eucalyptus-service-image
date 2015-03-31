@@ -18,7 +18,7 @@ Source2:        IMAGE-LICENSE
 # Kickstart used to build the image (included as documentation)
 Source3:        %{name}.ks
 
-BuildRequires:  euca2ools >= 3.2
+# BuildRequires:  euca2ools >= 3.2
 
 Obsoletes:      eucalyptus-imaging-worker-image < 1.1
 Obsoletes:      eucalyptus-load-balancer-image < 1.2
@@ -33,7 +33,8 @@ instantiate multiple internal services.
 
 
 %build
-euimage-pack-image %{SOURCE0} %{SOURCE1}
+# Dont use euimage-pack yet
+# euimage-pack-image %{SOURCE0} %{SOURCE1}
 
 
 %install

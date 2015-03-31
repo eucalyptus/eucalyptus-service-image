@@ -1,0 +1,180 @@
+#!/usr/bin/env python
+#
+# Software License Agreement (BSD License)
+#
+# Copyright (c) 2015, Eucalyptus Systems, Inc.
+# All rights reserved.
+#
+# Redistribution and use of this software in source and binary forms, with or
+# without modification, are permitted provided that the following conditions
+# are met:
+#
+#   Redistributions of source code must retain the above
+#   copyright notice, this list of conditions and the
+#   following disclaimer.
+#
+#   Redistributions in binary form must reproduce the above
+#   copyright notice, this list of conditions and the
+#   following disclaimer in the documentation and/or other
+#   materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+
+import argparse
+import logging
+import os
+import re
+import subprocess
+import sys
+import boto
+import euca2ools
+import rpm
+from prettytable import PrettyTable
+
+(major, minor, patch) = euca2ools.__version__.split('-')[0].split('.')
+if int(major) < 3 or (int(major) >= 3 and int(minor) < 1):
+    print >> sys.stderr, "euca2ools version 3.1.0 or newer required."
+    sys.exit(1)
+
+from requestbuilder.exceptions import ServiceInitError
+
+class ServiceImageManager(object):
+    IMAGE_NAME = 'eucalyptus-service-image'
+    IMAGE_RE = re.compile('^eucalyptus-service-image')
+    PROVIDED_SERVICES = ['imaging', 'loadbalancing', 'database']
+
+    def __init__(self):
+        self._check_environment()
+        self._ec2 = boto.connect_ec2_endpoint(os.environ.get("EC2_URL"))
+        self._get_images()
+
+    def _check_environment(self):
+        env = self._get_env()
+        if not "EC2_URL" in env:
+            print >> sys.stderr, "Error: Unable to find EC2_URL"
+            print >> sys.stderr, "Make sure your eucarc is sourced."
+            sys.exit(1)
+        cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-modify-property')]
+        try:
+            with open(os.devnull, 'w') as nullfile:
+                subprocess.call(cmd, env=env, stdout=nullfile)
+        except OSError:
+            print >> sys.stderr, "Error: cannot find 'euca-modify-property' binary."
+            print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
+            sys.exit(1)
+
+    def _get_images(self):
+        filters = {'tag:type': [self.IMAGE_NAME]}
+        return self._ec2.get_all_images(filters=filters)
+
+    def _get_env(self):
+        return os.environ.copy()
+
+    def _get_image_version(self):
+        ts = rpm.TransactionSet()
+        matches = ts.dbMatch('name', self.IMAGE_NAME)
+        for package in matches:
+            return package['version']
+
+    def list(self, show_instances=False):
+        table = PrettyTable(['SERVICE', 'VERSION', 'ACTIVE', 'IMAGE', 'INSTANCES'],
+                            border=False)
+        for service in self.PROVIDED_SERVICES:
+            for image in self._get_images():
+                service_instances = self._get_service_instances(service)
+                if image.id == self.get_enabled(service):
+                    state = '*'
+                else:
+                    state = ''
+                if show_instances:
+                    for instance in service_instances:
+                        table.add_row([service, image.tags['version'], state, image.id,
+                                        instance.id])
+                else:
+                    table.add_row([service, image.tags['version'], state, image.id,
+                                   len(service_instances)])
+        print table
+
+    def _get_image_instances(self, image):
+        return self._ec2.get_all_instances(filters={'image-id': image.id})
+
+    def _get_service_instances(self, service):
+        filters = {'tag:aws:cloudformation:stack-name':
+                        'euca-internal-{0}-service'.format(service)}
+        instances = []
+        for reservation in self._ec2.get_all_instances(filters=filters):
+            instances += reservation.instances
+        return instances
+
+    def get_enabled(self, service):
+        try:
+            env = self._get_env()
+            cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-describe-properties'),
+                   'services.{0}.worker.image'.format(service)]
+            out = subprocess.Popen(cmd, env=env,
+                                   stdout=subprocess.PIPE).communicate()[0]
+            imageid = out.split()[-1]
+            if imageid == "NULL":
+                return None
+            else:
+                return imageid
+        except OSError:
+            print >> sys.stderr, "Error: failed to get Imaging Woker EMI."
+            sys.exit(1)
+
+    @classmethod
+    def create(cls):
+        #
+        # Quiet the attempts to get logger for Walrus
+        #
+        class NullHandler(logging.Handler):
+            def emit(self, record):
+                pass
+        logging.getLogger("Walrus").addHandler(NullHandler())
+
+        try:
+            return cls()
+        except ServiceInitError as err:
+            print >> sys.stderr, str(err)
+            sys.exit(1)
+
+
+if __name__ == "__main__":
+    description = '''
+    Imaging Service Installation Tool:
+
+    This tool provides an easy way to install a Eucalyptus Imaging
+    Service image.  Normally, you'll want to pass '--install-default'
+    to install the latest Imaging Service image and register it with
+    Eucalyptus. You may next want to pass '--remove-old' if you need
+    to clean up older versions of the Imaging Service image.
+
+    Installed Imaging Service images will be marked with a "version" number
+    that differentiates one installed Imaging Service from another. The
+    larger the "version", the more recently the Imaging Service has been
+    installed.
+    '''
+
+    epilog = '''
+    NOTE: In order to use this you MUST have cloud administrator
+    credentials sourced in your environment (i.e., run the command
+    '. /my/cred/path/eucarc').'''
+
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description=description, epilog=epilog)
+    parser.add_argument('--show-instances', action='store_true', help='')
+    args = parser.parse_args()
+
+    ism = ServiceImageManager.create()
+    ism.list(show_instances=args.show_instances)
