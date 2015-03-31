@@ -35,6 +35,8 @@ Provides:       euclayptus-database-server-image
 This package contains a machine image for use in Eucalyptus to
 instantiate multiple internal services.
 
+%prep
+cp -p %{SOURCE2} %{SOURCE3} %{_builddir}
 
 %build
 # Dont use euimage-pack yet
