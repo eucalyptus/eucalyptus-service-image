@@ -50,6 +50,8 @@ install -m 755 %{SOURCE0}/bin/* $RPM_BUILD_ROOT/usr/bin
 # Something else should probably own the service-images dir at some
 # point, but we can deal with that later when we have more than one.
 /usr/share/eucalyptus/service-images
+/usr/bin/euca-describe-service-images
+/usr/bin/euca-install-service-image
 
 
 %changelog
