@@ -10,9 +10,9 @@ Group:          Applications/System
 License:        GPLv2
 URL:            http://www.eucalyptus.com/
 
-Source0:        %{name}-%{version}
+Source0:        %{name}-%{build_version}%{?build_id:-%build_id}.tgz
 # euimage metadata
-Source1:        %{name}.yml
+# Source1:        %{name}.yml
 # Image's OS's license
 Source2:        IMAGE-LICENSE
 # Kickstart used to build the image (included as documentation)
