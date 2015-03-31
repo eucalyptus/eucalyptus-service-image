@@ -280,7 +280,7 @@ if __name__ == "__main__":
     elif args.install_default:
         print 'Installing Service Image...'
         try:
-            tarball = glob.glob('{0}*/*.tgz'.format(DEFAULT_IMAGE_LOCATION))[0]
+            tarball = glob.glob('{0}'.format(DEFAULT_IMAGE_LOCATION))[0]
             print 'Found tarball {0}'.format(tarball)
             ism.install(tarball)
         except IndexError:
