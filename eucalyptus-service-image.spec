@@ -18,9 +18,9 @@ Source2:        IMAGE-LICENSE
 # Kickstart used to build the image (included as documentation)
 Source3:        %{name}.ks
 # Describe images tool
-Source4:        bin/euca-describe-service-images
+Source4:        euca-describe-service-images
 # Install tool
-Source5:        bin/euca-install-service-image
+Source5:        euca-install-service-image
 
 # BuildRequires:  euca2ools >= 3.2
 
