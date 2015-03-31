@@ -48,7 +48,7 @@ install -m 755 -d $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images
 install -m 755 -d $RPM_BUILD_ROOT/usr/bin
 install -m 755 %{SOURCE4} $RPM_BUILD_ROOT/usr/bin
 install -m 755 %{SOURCE5} $RPM_BUILD_ROOT/usr/bin
-#install -m 644 *.euimage $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images
+install -m 644 %{SOURCE0} $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images
 
 
 %files
