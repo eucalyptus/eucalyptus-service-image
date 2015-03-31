@@ -39,7 +39,9 @@ instantiate multiple internal services.
 
 %install
 install -m 755 -d $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images
-install -m 644 *.euimage $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images
+install -m 755 -d $RPM_BUILD_ROOT/usr/bin
+install -m 755 %{SOURCE0}/bin/* $RPM_BUILD_ROOT/usr/bin
+#install -m 644 *.euimage $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images
 
 
 %files
