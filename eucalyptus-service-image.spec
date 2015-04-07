@@ -24,6 +24,8 @@ Source5:        euca-install-service-image
 
 # BuildRequires:  euca2ools >= 3.2
 
+Requires: python-prettytable
+
 Obsoletes:      eucalyptus-imaging-worker-image < 1.1
 Obsoletes:      eucalyptus-load-balancer-image < 1.2
 Provides:       euclayptus-imaging-worker-image
