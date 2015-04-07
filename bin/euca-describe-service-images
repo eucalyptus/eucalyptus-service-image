@@ -111,7 +111,9 @@ class ServiceImageManager(object):
 
     def _get_service_instances(self, service):
         filters = {'tag:aws:cloudformation:stack-name':
-                        'euca-internal-{0}-service'.format(service)}
+                        'euca-internal-{0}-service'.format(service),
+                   'instance-state-name':
+                        'running'}
         instances = []
         for reservation in self._ec2.get_all_instances(filters=filters):
             instances += reservation.instances
