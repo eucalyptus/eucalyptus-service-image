@@ -51,7 +51,7 @@ if int(major) < 3 or (int(major) >= 3 and int(minor) < 1):
 from requestbuilder.exceptions import ServiceInitError
 
 
-DEFAULT_IMAGE_LOCATION = '/usr/share/eucalyptus-service-image'
+DEFAULT_IMAGE_LOCATION = '/usr/share/eucalyptus/service-images/'
 
 
 class ServiceImageManager(object):
@@ -178,8 +178,8 @@ class ServiceImageManager(object):
         print "Registered image: " + emi_id
         remove_tarball_cmd = "rm -f {0}".format(image_file)
         self._run_command(remove_tarball_cmd)
-        self.enable(emi_id, 'imaging')
-        self.enable(emi_id, 'loadbalancing')
+        for service in self.PROVIDED_SERVICES:
+            self.enable(emi_id, service)
         return emi_id
 
     def get_enabled(self):
@@ -280,7 +280,7 @@ if __name__ == "__main__":
     elif args.install_default:
         print 'Installing Service Image...'
         try:
-            tarball = glob.glob('{0}'.format(DEFAULT_IMAGE_LOCATION))[0]
+            tarball = glob.glob('{0}/*.tgz'.format(DEFAULT_IMAGE_LOCATION))[0]
             print 'Found tarball {0}'.format(tarball)
             ism.install(tarball)
         except IndexError:
