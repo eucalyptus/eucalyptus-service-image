@@ -21,6 +21,8 @@ Source3:        %{name}.ks
 Source4:        euca-describe-service-images
 # Install tool
 Source5:        euca-install-service-image
+# Manage imaging stack tool
+Source6:        euca-manage-imaging-stack
 
 # BuildRequires:  euca2ools >= 3.2
 
@@ -51,6 +53,7 @@ install -m 644 %{SOURCE0} $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images/%{
 install -m 755 -d $RPM_BUILD_ROOT/usr/bin
 install -m 755 %{SOURCE4} $RPM_BUILD_ROOT/usr/bin
 install -m 755 %{SOURCE5} $RPM_BUILD_ROOT/usr/bin
+install -m 755 %{SOURCE6} $RPM_BUILD_ROOT/usr/bin
 
 
 %files
@@ -61,7 +64,10 @@ install -m 755 %{SOURCE5} $RPM_BUILD_ROOT/usr/bin
 /usr/share/eucalyptus/service-images/%{name}.tgz
 /usr/bin/euca-describe-service-images
 /usr/bin/euca-install-service-image
+/usr/bin/euca-manage-imaging-stack
 
 %changelog
-* Fri Dec 05 2014 Eucalyptus Release Engineering <support@eucalyptus.com> - 0.1-0
+* Thu Apr 23 2015 Eucalyptus Release Engineering <support@eucalyptus.com>
+- Added euca-manage-imaging-stack
+* Fri Dec 05 2014 Eucalyptus Release Engineering <support@eucalyptus.com>
 - Created
