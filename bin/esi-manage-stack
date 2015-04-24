@@ -68,10 +68,10 @@ class StackManager(object):
         try:
             subprocess.check_call(cmd, env=os.environ.copy())
         except (OSError, subprocess.CalledProcessError):
-            print >> sys.stderr, "Error: failed to {0} imaging service stack".format(operation)
+            print >> sys.stderr, "Error: failed to {0} {1} service stack".format(operation, stack)
             print >> sys.stderr, "You'll have to {0} it manually.".format(operation)
             print >> sys.stderr
-            print >> sys.stderr, "To {0} imaging service support, run this command:".format(operation)
+            print >> sys.stderr, "To {0} {1} service support, run this command:".format(operation, stack)
             print >> sys.stderr, " ".join(cmd)
             sys.exit(1)
 
