@@ -18,11 +18,11 @@ Source2:        IMAGE-LICENSE
 # Kickstart used to build the image (included as documentation)
 Source3:        %{name}.ks
 # Describe images tool
-Source4:        euca-describe-service-images
+Source4:        esi-describe-images
 # Install tool
-Source5:        euca-install-service-image
+Source5:        esi-install-image
 # Manage imaging stack tool
-Source6:        euca-manage-imaging-stack
+Source6:        esi-manage-stack
 
 # BuildRequires:  euca2ools >= 3.2
 
@@ -62,12 +62,12 @@ install -m 755 %{SOURCE6} $RPM_BUILD_ROOT/usr/bin
 # Something else should probably own the service-images dir at some
 # point, but we can deal with that later when we have more than one.
 /usr/share/eucalyptus/service-images/%{name}.tgz
-/usr/bin/euca-describe-service-images
-/usr/bin/euca-install-service-image
-/usr/bin/euca-manage-imaging-stack
+/usr/bin/esi-describe-images
+/usr/bin/esi-install-image
+/usr/bin/esi-manage-stack
 
 %changelog
-* Thu Apr 23 2015 Eucalyptus Release Engineering <support@eucalyptus.com>
-- Added euca-manage-imaging-stack
+* Fri Apr 24 2015 Eucalyptus Release Engineering <support@eucalyptus.com>
+- Use esi prefix for tools
 * Fri Dec 05 2014 Eucalyptus Release Engineering <support@eucalyptus.com>
 - Created

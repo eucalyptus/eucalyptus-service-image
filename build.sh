@@ -2,6 +2,7 @@
 #
 #  virt-install python-jinja2 python-jinja2-26 qemu-kvm libvirt createrepo libguestfs-tools rpm-build
 #
+# $BUILD_VERSION should be set before execution
 # if building in Jenskins, comment out this:
 export BUILD_NUMBER=007
 
@@ -13,7 +14,6 @@ else
     export BUILD_ID=$GIT_COMMIT_COUNT.$BUILD_NUMBER
 fi
 export BASENAME=eucalyptus-service-image
-export BUILD_VERSION=$(cat VERSION)
 export KSFILE=$BASENAME.ks
 export IMGFILE=$BASENAME.img
 export BUILD_MIRROR_TYPE=internal-ci
