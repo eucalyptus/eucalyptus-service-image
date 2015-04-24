@@ -43,10 +43,6 @@ if int(major) < 3 or (int(major) >= 3 and int(minor) < 1):
 
 
 class StackManager(object):
-
-    STACK_TO_PROPERTY = {'imaging': 'services.imaging.worker.configured',
-                         'database': 'services.database.worker.configured'}
-
     def __init__(self):
         self._check_environment()
 
@@ -65,9 +61,9 @@ class StackManager(object):
             print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
             sys.exit(1)
 
-    def set_property(self, value, property_name):
+    def set_property(self, value, stack):
         operation = 'enable' if value else 'disable'
-        service_property = '{0}={1}'.format(property_name, 'true' if value else 'false')
+        service_property = 'services.{0}.worker.configured={1}'.format(stack, 'true' if value else 'false')
         cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-modify-property'), '-p', service_property]
         try:
             subprocess.check_call(cmd, env=os.environ.copy())
@@ -80,10 +76,10 @@ class StackManager(object):
             sys.exit(1)
 
     def enable(self, stack):
-        self.set_property(True, StackManager.STACK_TO_PROPERTY[stack])
+        self.set_property(True, stack)
 
     def disable(self, stack):
-        self.set_property(False, StackManager.STACK_TO_PROPERTY[stack])
+        self.set_property(False, stack)
 
 
 if __name__ == "__main__":
