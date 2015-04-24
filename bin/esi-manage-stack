@@ -42,7 +42,10 @@ if int(major) < 3 or (int(major) >= 3 and int(minor) < 1):
     sys.exit(1)
 
 
-class ImageStackManager(object):
+class StackManager(object):
+
+    STACK_TO_PROPERTY = {'imaging': 'services.imaging.worker.configured',
+                         'reporting-database': 'services.database.worker.configured'}
 
     def __init__(self):
         self._check_environment()
@@ -62,10 +65,9 @@ class ImageStackManager(object):
             print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
             sys.exit(1)
 
-    def set_property(self, value):
-
+    def set_property(self, value, property_name):
         operation = 'enable' if value else 'disable'
-        service_property = 'services.imaging.worker.configured={0}'.format('true' if value else 'false')
+        service_property = '{0}={1}'.format(property_name, 'true' if value else 'false')
         cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-modify-property'), '-p', service_property]
         try:
             subprocess.check_call(cmd, env=os.environ.copy())
@@ -77,19 +79,19 @@ class ImageStackManager(object):
             print >> sys.stderr, " ".join(cmd)
             sys.exit(1)
 
-    def enable(self):
-        self.set_property(True)
+    def enable(self, stack):
+        self.set_property(True, ImageStackManager.STACK_TO_PROPERTY[stack])
 
-    def disable(self):
-        self.set_property(False)
+    def disable(self, stack):
+        self.set_property(False, ImageStackManager.STACK_TO_PROPERTY[stack])
 
 
 if __name__ == "__main__":
     description = '''
-    Imaging Service Stack Enable/Disable Tool:
+    Service Image Stack manage tool:
 
     This tool provides an easy way to create or delete stack for
-    Eucalyptus Imaging Service image.
+    Eucalyptus Service image.
     '''
     epilog = '''
     NOTE: In order to use this you MUST have cloud administrator
@@ -97,16 +99,15 @@ if __name__ == "__main__":
     '. /my/cred/path/eucarc').'''
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description=description, epilog=epilog)
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-e', '--enable', action='store_true',
-                       help='Create stack for imaging service image')
-    group.add_argument('-d', '--disable', action='store_true',
-                       help='Delete stack for imaging service image')
+    parser.add_argument('-a', '--action', help='Action to take (create or delete) for the service image stack',
+                        choices=['create', 'delete'])
+    parser.add_argument('stack', help='Service image stack name (imaging or reporting-database)',
+                        choices=['imaging', 'reporting-database'])
 
     args = parser.parse_args()
-    ism = ImageStackManager()
+    sm = StackManager()
 
-    if args.enable:
-        ism.enable()
-    elif args.disable:
-        ism.disable()
+    if args.action == 'create':
+        sm.enable(args.stack)
+    elif args.action == 'delete':
+        sm.disable(args.stack)
