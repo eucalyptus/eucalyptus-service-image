@@ -45,7 +45,7 @@ if int(major) < 3 or (int(major) >= 3 and int(minor) < 1):
 class StackManager(object):
 
     STACK_TO_PROPERTY = {'imaging': 'services.imaging.worker.configured',
-                         'reporting-database': 'services.database.worker.configured'}
+                         'database': 'services.database.worker.configured'}
 
     def __init__(self):
         self._check_environment()
@@ -101,8 +101,8 @@ if __name__ == "__main__":
                                      description=description, epilog=epilog)
     parser.add_argument('-a', '--action', help='Action to take (create or delete) for the service image stack',
                         choices=['create', 'delete'])
-    parser.add_argument('stack', help='Service image stack name (imaging or reporting-database)',
-                        choices=['imaging', 'reporting-database'])
+    parser.add_argument('stack', help='Service image stack name (imaging or database)',
+                        choices=['imaging', 'database'])
 
     args = parser.parse_args()
     sm = StackManager()
