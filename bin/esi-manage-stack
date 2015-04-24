@@ -80,10 +80,10 @@ class StackManager(object):
             sys.exit(1)
 
     def enable(self, stack):
-        self.set_property(True, ImageStackManager.STACK_TO_PROPERTY[stack])
+        self.set_property(True, StackManager.STACK_TO_PROPERTY[stack])
 
     def disable(self, stack):
-        self.set_property(False, ImageStackManager.STACK_TO_PROPERTY[stack])
+        self.set_property(False, StackManager.STACK_TO_PROPERTY[stack])
 
 
 if __name__ == "__main__":
