@@ -21,6 +21,8 @@ Source3:        %{name}.ks
 Source4:        esi-describe-images
 # Install tool
 Source5:        esi-install-image
+# Manage imaging stack tool
+Source6:        esi-manage-stack
 
 # BuildRequires:  euca2ools >= 3.2
 
@@ -51,6 +53,7 @@ install -m 644 %{SOURCE0} $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images/%{
 install -m 755 -d $RPM_BUILD_ROOT/usr/bin
 install -m 755 %{SOURCE4} $RPM_BUILD_ROOT/usr/bin
 install -m 755 %{SOURCE5} $RPM_BUILD_ROOT/usr/bin
+install -m 755 %{SOURCE6} $RPM_BUILD_ROOT/usr/bin
 
 
 %files
@@ -61,6 +64,7 @@ install -m 755 %{SOURCE5} $RPM_BUILD_ROOT/usr/bin
 /usr/share/eucalyptus/service-images/%{name}.tgz
 /usr/bin/esi-describe-images
 /usr/bin/esi-install-image
+/usr/bin/esi-manage-stack
 
 %changelog
 * Fri Apr 24 2015 Eucalyptus Release Engineering <support@eucalyptus.com>
