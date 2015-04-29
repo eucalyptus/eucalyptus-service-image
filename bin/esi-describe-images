@@ -92,7 +92,7 @@ class ServiceImageManager(object):
                             border=False)
         for service in self.PROVIDED_SERVICES:
             for image in self._get_images():
-                service_instances = self._get_service_instances(service)
+                service_instances = self._get_service_instances(service, image.id)
                 if image.id == self.get_enabled(service):
                     state = '*'
                 else:
@@ -109,11 +109,10 @@ class ServiceImageManager(object):
     def _get_image_instances(self, image):
         return self._ec2.get_all_instances(filters={'image-id': image.id})
 
-    def _get_service_instances(self, service):
-        filters = {'tag:aws:cloudformation:stack-name':
-                        'euca-internal-{0}-service'.format(service),
-                   'instance-state-name':
-                        'running'}
+    def _get_service_instances(self, service, image_id):
+        filters = {'tag:service-type': service,
+                   'instance-state-name': 'running',
+                   'image-id': image_id}
         instances = []
         for reservation in self._ec2.get_all_instances(filters=filters):
             instances += reservation.instances
@@ -132,7 +131,7 @@ class ServiceImageManager(object):
             else:
                 return imageid
         except OSError:
-            print >> sys.stderr, "Error: failed to get Imaging Woker EMI."
+            print >> sys.stderr, "Error: failed to get {0} worker EMI.".format(service)
             sys.exit(1)
 
     @classmethod
