@@ -160,9 +160,9 @@ class ServiceImageManager(object):
         ### Bundle and upload image
         image_file = decompress_stdout.strip()
 
-        version_string = "v{0}".format(self._get_image_version())
+        version_string = self._get_image_version()
         bucket = self.IMAGE_NAME + '-' + version_string
-        image_name = self.IMAGE_NAME + "-" + version_string
+        image_name = "{0}-v{1}".format(self.IMAGE_NAME, version_string)
         print "Bundling, uploading and registering image to bucket: " + bucket
         install_cmd = "euca-install-image -b {0} -i {1} " \
                       "-r x86_64 -n {2} --virt hvm".format(bucket, image_file,
