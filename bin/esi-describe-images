@@ -145,6 +145,13 @@ class ServiceImageManager(object):
         instances = []
         for reservation in ec2.get_all_instances(filters=filters):
             instances += reservation.instances
+        # before 4.2 loadbalancing instances were running under cloud admin user with a different tag
+        if 'loadbalancing' == service:
+            old_filters = {'tag:Name': 'loadbalancer-resources',
+                   'instance-state-name': 'running',
+                   'image-id': image_id}
+            for reservation in self._ec2.get_all_instances(filters=old_filters):
+                instances += reservation.instances
         return instances
 
     def get_enabled(self, service):
