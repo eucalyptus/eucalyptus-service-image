@@ -99,13 +99,13 @@ class ServiceImageManager(object):
 
     def _remove(self, images, force=False):
         removed = []
-        enabled_image = self.get_enabled()
+        enabled_images = self.get_enabled()
         for image_set in images.itervalues():
             should_remove = True
             if not force:
                 for image in image_set:
                     imageid = image.id
-                    if imageid == enabled_image:
+                    if enabled_images.has_key(imageid):
                         print >> sys.stderr, "Warning: skipping enabled image."
                         print >> sys.stderr, "Use '--force' to remove it anyway."
                         should_remove = False
@@ -183,10 +183,16 @@ class ServiceImageManager(object):
         return emi_id
 
     def get_enabled(self):
+        enabled_images = {}
+        for service in self.PROVIDED_SERVICES:
+            enabled_images[self.get_enabled_service_image(service)] = True
+        return enabled_images
+
+    def get_enabled_service_image(self, service):
         try:
             env = self._get_env()
             cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-describe-properties'),
-                   'services.imaging.worker.image']
+                   'services.{0}.worker.image'.format(service)]
             out = subprocess.Popen(cmd, env=env,
                                    stdout=subprocess.PIPE).communicate()[0]
             imageid = out.split()[-1]
@@ -195,7 +201,7 @@ class ServiceImageManager(object):
             else:
                 return imageid
         except OSError:
-            print >> sys.stderr, "Error: failed to get Imaging Woker EMI."
+            print >> sys.stderr, "Error: failed to get {0} Woker EMI.".format(service)
             sys.exit(1)
 
     def enable(self, imageid, service):
@@ -205,10 +211,10 @@ class ServiceImageManager(object):
         try:
             subprocess.check_call(cmd, env=env)
         except (OSError, subprocess.CalledProcessError):
-            print >> sys.stderr, "Error: failed to set Imaging Service EMI."
+            print >> sys.stderr, "Error: failed to set {0} service EMI.".format(service.capitalize())
             print >> sys.stderr, "You'll have to enable it manually."
             print >> sys.stderr
-            print >> sys.stderr, "To enable imaging service support, run this command:"
+            print >> sys.stderr, "To set {0} service EMI, run this command:".format(service.capitalize())
             print >> sys.stderr, " ".join(cmd)
             sys.exit(1)
 
@@ -231,18 +237,17 @@ class ServiceImageManager(object):
 
 if __name__ == "__main__":
     description = '''
-    Imaging Service Installation Tool:
+    Service Image Installation Tool:
 
-    This tool provides an easy way to install a Eucalyptus Imaging
-    Service image.  Normally, you'll want to pass '--install-default'
-    to install the latest Imaging Service image and register it with
-    Eucalyptus. You may next want to pass '--remove-old' if you need
-    to clean up older versions of the Imaging Service image.
+    This tool provides an easy way to install a Eucalyptus Service image.
+    Normally, you'll want to pass '--install-default' to install the
+    latest Service image and register it with Eucalyptus. You may next want
+    to pass '--remove-old' if you need to clean up older versions of the
+    Service image(s).
 
-    Installed Imaging Service images will be marked with a "version" number
-    that differentiates one installed Imaging Service from another. The
-    larger the "version", the more recently the Imaging Service has been
-    installed.
+    Installed Service images will be marked with a "version" number
+    that reflects package number. The larger the "version", the more recently
+    the Service has been installed (packaged).
     '''
 
     epilog = '''
@@ -254,23 +259,23 @@ if __name__ == "__main__":
                                      description=description, epilog=epilog)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-t', '--tarball', metavar='TARBALL',
-                       help='Imaging Service tarball to install')
+                       help='Service tarball to install')
     group.add_argument('--install-default', action='store_true',
                        help='''This option must be supplied if you
                        would like to install the default tarball''')
     group.add_argument('--remove-old', action='store_true',
-                       help='''Remove OLD Imaging Service images. Your most
-                       recently installed Imaging Service images and your
-                       currently enabled Imaging Service image will not be
+                       help='''Remove OLD Service images. Your most
+                       recently installed Service images and your
+                       currently enabled Service image will not be
                        removed. Most of the time, these will be the
                        same Imaging Service image.''')
     group.add_argument('--remove-all', action='store_true',
-                       help='''Remove ALL Imaging Service images. The
-                       currently enabled Imaging Service image will be skipped
+                       help='''Remove ALL Service images. The
+                       currently enabled Service image(s) will be skipped
                        unless '--force' is passed as well.''')
     parser.add_argument('--force', action='store_true', help='''Force
                         an operation. This will force removal of
-                        enabled Imaging Service.''')
+                        enabled Service images.''')
 
     args = parser.parse_args()
     ism = ServiceImageManager.create()
@@ -284,7 +289,7 @@ if __name__ == "__main__":
             print 'Found tarball {0}'.format(tarball)
             ism.install(tarball)
         except IndexError:
-            print >> sys.stderr, "Error: failed to find a Imaging Service tarball."
+            print >> sys.stderr, "Error: failed to find a Service tarball."
             print >> sys.stderr, "Try supplying one on the command line with '-t'."
             sys.exit(1)
     elif args.remove_old:
