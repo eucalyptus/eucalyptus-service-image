@@ -161,7 +161,7 @@ gpgcheck=0
 
 [euca2ools]
 name=Euca2ools
-baseurl=http://packages.release.eucalyptus-systems.com/yum/builds/euca2ools/branch/master/centos/6/x86_64
+baseurl=http://packages.release.eucalyptus-systems.com/yum/tags/euca2ools-devel/centos/6/x86_64/
 enabled=1
 EOF
 
