@@ -155,7 +155,7 @@ cat >> /tmp/yum-tmp.conf <<EOF
 
 [eucalyptus-devel]
 name=eucalyptus-devel
-baseurl=http://packages.release.eucalyptus-systems.com/yum/tags/eucalyptus-devel/centos/6/x86_64/
+baseurl=http://packages.release.eucalyptus-systems.com/yum/tags/eucalyptus-4.1/centos/6/x86_64/
 enabled=1
 gpgcheck=0
 
