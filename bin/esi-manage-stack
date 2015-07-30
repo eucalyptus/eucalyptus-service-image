@@ -35,6 +35,10 @@ import euca2ools
 import subprocess
 import os
 import argparse
+from boto.cloudformation import CloudFormationConnection
+from boto.sts import STSConnection
+from urlparse import urlparse
+import boto.cloudformation
 
 (major, minor, patch) = euca2ools.__version__.split('-')[0].split('.')
 if int(major) < 3 or (int(major) >= 3 and int(minor) < 1):
@@ -44,22 +48,25 @@ if int(major) < 3 or (int(major) >= 3 and int(minor) < 1):
 
 class StackManager(object):
     def __init__(self):
+        self._env = os.environ.copy()
         self._check_environment()
 
+    def _check_binary(self, binary):
+        try:
+            with open(os.devnull, 'w') as nullfile:
+                subprocess.call(os.path.join(os.getenv("EUCALYPTUS", "/") + binary), env=self._env, stdout=nullfile)
+        except OSError:
+            print >> sys.stderr, "Error: cannot find '{0}' binary.".format(binary)
+            print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
+            sys.exit(1)
+
     def _check_environment(self):
-        env = os.environ.copy()
-        if not "EC2_URL" in env:
+        if not "EC2_URL" in self._env:
             print >> sys.stderr, "Error: Unable to find EC2_URL"
             print >> sys.stderr, "Make sure your eucarc is sourced."
             sys.exit(1)
-        cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-modify-property')]
-        try:
-            with open(os.devnull, 'w') as nullfile:
-                subprocess.call(cmd, env=env, stdout=nullfile)
-        except OSError:
-            print >> sys.stderr, "Error: cannot find 'euca-modify-property' binary."
-            print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
-            sys.exit(1)
+        self._check_binary('/usr/bin/euare-accountlist')
+        self._check_binary('/usr/sbin/euca-modify-property')
 
     def set_property(self, value, stack):
         operation = 'enable' if value else 'disable'
@@ -81,6 +88,56 @@ class StackManager(object):
     def disable(self, stack):
         self.set_property(False, stack)
 
+    def check(self, stack):
+        system_accounts = StackManager._list_system_accounts();
+        token_url = urlparse(os.environ.get("TOKEN_URL"))
+        cloudform_url = urlparse(os.environ.get("AWS_CLOUDFORMATION_URL"))
+        STSConnection.DefaultRegionEndpoint = token_url.hostname
+        port = token_url.port if token_url.port else 80
+        sts = STSConnection(is_secure=False, port=port, path=token_url.path)
+        role_arn="arn:aws:iam::{0}:role/{1}/{2}ServiceAdministrator".format(
+                system_accounts['(eucalyptus){0}'.format(stack)],
+                stack, stack.capitalize())
+        role = sts.assume_role(role_arn=role_arn, role_session_name='Service')
+        CloudFormationConnection.DefaultRegionEndpoint = cloudform_url.hostname
+        euform_conn =  boto.cloudformation.connection.CloudFormationConnection(
+            aws_access_key_id=role.credentials.access_key,
+            aws_secret_access_key=role.credentials.secret_key,
+            security_token=role.credentials.session_token,
+            port=port, is_secure=False, path=cloudform_url.path)
+        stacks = euform_conn.describe_stacks()
+        if len(stacks) > 1:
+            print "There are several active stacks in '{0}' service account. Something went wrong".format(stacks)
+            sys.exit(1)
+        if len(stacks) == 0:
+            print "There is no active stacks in '{0}' service account".format(stack)
+            sys.exit(1)
+        stack_name = stacks[0].stack_name
+        stack_status = stacks[0].stack_status
+        if stack_name == 'DELETE_FAILED':
+            stack_res = euform_conn.describe_stack_resources(stack_name)
+            for r in stack_res:
+                if r.resource_status == 'DELETE_FAILED':
+                    print "Please manually delete {0} with id {1} to unblock stack delete process".format(
+                        r.logical_resource_id, r.physical_resource_id)
+        elif stack_status == 'CREATE_FAILED':
+            print 'Stack creation failed. You need to check system logs for errors.'
+        else:
+            print "Stack '{0}' currently is in {1} state.".format(stack_name, stack_status)
+
+
+    @staticmethod
+    def _list_system_accounts():
+        accounts = {}
+        process = subprocess.Popen([os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/bin/euare-accountlist')],
+                                   stdout=subprocess.PIPE)
+        t = process.communicate()
+        if process.returncode == 0:
+            for account in t[0].split('\n'):
+                a = account.split('\t')
+                if len(a) == 2:
+                    accounts[a[0]] = a[1]
+        return accounts
 
 if __name__ == "__main__":
     description = '''
@@ -95,8 +152,8 @@ if __name__ == "__main__":
     '. /my/cred/path/eucarc').'''
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description=description, epilog=epilog)
-    parser.add_argument('-a', '--action', help='Action to take (create or delete) for the service image stack',
-                        choices=['create', 'delete'])
+    parser.add_argument('-a', '--action', help='Action to take (create, check or delete) for the service image stack',
+                        choices=['create', 'delete', 'check'])
     parser.add_argument('stack', help='Service image stack name (imaging or database)',
                         choices=['imaging', 'database'])
 
@@ -107,3 +164,5 @@ if __name__ == "__main__":
         sm.enable(args.stack)
     elif args.action == 'delete':
         sm.disable(args.stack)
+    elif args.action == 'check':
+        sm.check(args.stack)

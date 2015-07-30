@@ -61,24 +61,27 @@ class ServiceImageManager(object):
     PROVIDED_SERVICES = ['imaging', 'loadbalancing', 'database']
 
     def __init__(self):
+        self._env = os.environ.copy()
         self._check_environment()
         self._ec2 = boto.connect_ec2_endpoint(os.environ.get("EC2_URL"))
         self._populate_images()
 
+    def _check_binary(self, binary):
+        try:
+            with open(os.devnull, 'w') as nullfile:
+                subprocess.call(os.path.join(os.getenv("EUCALYPTUS", "/") + binary), env=self._env, stdout=nullfile)
+        except OSError:
+            print >> sys.stderr, "Error: cannot find '{0}' binary.".format(binary)
+            print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
+            sys.exit(1)
+
     def _check_environment(self):
-        env = self._get_env()
-        if not "EC2_URL" in env:
+        if not "EC2_URL" in self._env:
             print >> sys.stderr, "Error: Unable to find EC2_URL"
             print >> sys.stderr, "Make sure your eucarc is sourced."
             sys.exit(1)
-        cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-modify-property')]
-        try:
-            with open(os.devnull, 'w') as nullfile:
-                subprocess.call(cmd, env=env, stdout=nullfile)
-        except OSError:
-            print >> sys.stderr, "Error: cannot find 'euca-modify-property' binary."
-            print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
-            sys.exit(1)
+        self._check_binary('/usr/sbin/euca-describe-properties')
+        self._check_binary('/usr/sbin/euca-modify-property')
 
     def _populate_images(self):
         self.images = {}
@@ -93,9 +96,6 @@ class ServiceImageManager(object):
     def _split_location(self, location):
         matches = re.match(r'(.+)/(.+)\.manifest\.xml', location)
         return matches.groups()
-
-    def _get_env(self):
-        return os.environ.copy()
 
     def _remove(self, images, force=False):
         removed = []
@@ -190,10 +190,9 @@ class ServiceImageManager(object):
 
     def get_enabled_service_image(self, service):
         try:
-            env = self._get_env()
             cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-describe-properties'),
                    'services.{0}.worker.image'.format(service)]
-            out = subprocess.Popen(cmd, env=env,
+            out = subprocess.Popen(cmd, env=self._env,
                                    stdout=subprocess.PIPE).communicate()[0]
             imageid = out.split()[-1]
             if imageid == "NULL":
@@ -205,11 +204,10 @@ class ServiceImageManager(object):
             sys.exit(1)
 
     def enable(self, imageid, service):
-        env = self._get_env()
         service_property = 'services.{0}.worker.image={1}'.format(service, imageid)
         cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-modify-property'), '-p', service_property]
         try:
-            subprocess.check_call(cmd, env=env)
+            subprocess.check_call(cmd, env=self._env)
         except (OSError, subprocess.CalledProcessError):
             print >> sys.stderr, "Error: failed to set {0} service EMI.".format(service.capitalize())
             print >> sys.stderr, "You'll have to enable it manually."
