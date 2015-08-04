@@ -45,7 +45,7 @@ cp -p %{SOURCE2} %{SOURCE3} %{_builddir}
 %build
 # Dont use euimage-pack yet
 # euimage-pack-image %{SOURCE0} %{SOURCE1}
-
+%{__python} setup.py build
 
 %install
 install -m 755 -d $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images
@@ -54,7 +54,7 @@ install -m 755 -d $RPM_BUILD_ROOT/usr/bin
 install -m 755 %{SOURCE4} $RPM_BUILD_ROOT/usr/bin
 install -m 755 %{SOURCE5} $RPM_BUILD_ROOT/usr/bin
 install -m 755 %{SOURCE6} $RPM_BUILD_ROOT/usr/bin
-
+%{__python} setup.py install --skip-build --root $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)

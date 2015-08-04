@@ -31,56 +31,21 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import sys
-import euca2ools
-import subprocess
 import os
 import argparse
 from boto.cloudformation import CloudFormationConnection
 from boto.sts import STSConnection
 from urlparse import urlparse
 import boto.cloudformation
-
-(major, minor, patch) = euca2ools.__version__.split('-')[0].split('.')
-if int(major) < 3 or (int(major) >= 3 and int(minor) < 1):
-    print >> sys.stderr, "euca2ools version 3.1.0 or newer required."
-    sys.exit(1)
-
+from esitoolsupport import list_system_accounts, check_environment, set_property
 
 class StackManager(object):
     def __init__(self):
-        self._env = os.environ.copy()
-        self._check_environment()
-
-    def _check_binary(self, binary):
-        try:
-            with open(os.devnull, 'w') as nullfile:
-                subprocess.call(os.path.join(os.getenv("EUCALYPTUS", "/") + binary), env=self._env, stdout=nullfile)
-        except OSError:
-            print >> sys.stderr, "Error: cannot find '{0}' binary.".format(binary)
-            print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
-            sys.exit(1)
-
-    def _check_environment(self):
-        if not "EC2_URL" in self._env:
-            print >> sys.stderr, "Error: Unable to find EC2_URL"
-            print >> sys.stderr, "Make sure your eucarc is sourced."
-            sys.exit(1)
-        self._check_binary('/usr/bin/euare-accountlist')
-        self._check_binary('/usr/sbin/euca-modify-property')
+        check_environment()
 
     def set_property(self, value, stack):
-        operation = 'enable' if value else 'disable'
-        service_property = 'services.{0}.worker.configured={1}'.format(stack, 'true' if value else 'false')
-        cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-modify-property'), '-p', service_property]
-        try:
-            subprocess.check_call(cmd, env=os.environ.copy())
-        except (OSError, subprocess.CalledProcessError):
-            print >> sys.stderr, "Error: failed to {0} {1} service stack".format(operation, stack)
-            print >> sys.stderr, "You'll have to {0} it manually.".format(operation)
-            print >> sys.stderr
-            print >> sys.stderr, "To {0} {1} service support, run this command:".format(operation, stack)
-            print >> sys.stderr, " ".join(cmd)
-            sys.exit(1)
+        service_property = 'services.{0}.worker.configured'.format(stack)
+        set_property(service_property, 'true' if value else 'false')
 
     def enable(self, stack):
         self.set_property(True, stack)
@@ -89,7 +54,7 @@ class StackManager(object):
         self.set_property(False, stack)
 
     def check(self, stack):
-        system_accounts = StackManager._list_system_accounts();
+        system_accounts = list_system_accounts();
         token_url = urlparse(os.environ.get("TOKEN_URL"))
         cloudform_url = urlparse(os.environ.get("AWS_CLOUDFORMATION_URL"))
         STSConnection.DefaultRegionEndpoint = token_url.hostname
@@ -125,19 +90,6 @@ class StackManager(object):
         else:
             print "Stack '{0}' currently is in {1} state.".format(stack_name, stack_status)
 
-
-    @staticmethod
-    def _list_system_accounts():
-        accounts = {}
-        process = subprocess.Popen([os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/bin/euare-accountlist')],
-                                   stdout=subprocess.PIPE)
-        t = process.communicate()
-        if process.returncode == 0:
-            for account in t[0].split('\n'):
-                a = account.split('\t')
-                if len(a) == 2:
-                    accounts[a[0]] = a[1]
-        return accounts
 
 if __name__ == "__main__":
     description = '''
