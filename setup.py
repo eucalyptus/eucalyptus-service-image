@@ -25,20 +25,22 @@
 
 from distutils.core import setup
 
+
 def getVersion():
     try:
         return open('VERSION').read().rstrip()
     except IOError:
         return "0"
 
-setup (name="Eucalyptus Service Image Toolset",
-    version = getVersion(),
-    description = "Support for Eucalyptus Service Image Tools",
-    long_description = "Support for Eucalyptus Service Image Tools",
-    author = "Vasiliy Kochergin",
-    author_email = "community@eucalyptus.com",
-    license = "GPL v3",
-    url = "http://www.eucalytpus.com",
-    packages = ['esitoolsupport'],
+
+setup(name="Eucalyptus Service Image Toolset",
+      version=getVersion(),
+      description="Support for Eucalyptus Service Image Tools",
+      long_description="Support for Eucalyptus Service Image Tools",
+      author="Vasiliy Kochergin",
+      author_email="community@eucalyptus.com",
+      license="GPL v3",
+      url="http://www.eucalytpus.com",
+      packages=['esitoolsupport'],
 )
 

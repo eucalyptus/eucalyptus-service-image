@@ -35,8 +35,7 @@ if int(major) < 3 or (int(major) >= 3 and int(minor) < 1):
 
 def list_system_accounts():
     accounts = {}
-    process = subprocess.Popen([os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/bin/euare-accountlist')],
-                               stdout=subprocess.PIPE)
+    process = subprocess.Popen(['/usr/bin/euare-accountlist'], stdout=subprocess.PIPE)
     t = process.communicate()
     if process.returncode == 0:
         for account in t[0].split('\n'):
@@ -49,7 +48,7 @@ def list_system_accounts():
 def _check_binary(binary):
     try:
         with open(os.devnull, 'w') as nullfile:
-            subprocess.call(os.path.join(os.getenv("EUCALYPTUS", "/") + binary), env=os.environ.copy(), stdout=nullfile)
+            subprocess.call(binary, env=os.environ.copy(), stdout=nullfile)
     except OSError:
         print >> sys.stderr, "Error: cannot find '{0}' binary.".format(binary)
         print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
@@ -74,8 +73,7 @@ def check_environment():
 
 
 def set_property(property, value):
-    cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/bin/euctl'), '-U', _get_properties_url(),
-           "{0}={1}".format(property, value)]
+    cmd = ['/usr/bin/euctl', '-U', _get_properties_url(), "{0}={1}".format(property, value)]
     try:
         subprocess.check_call(cmd, env=os.environ.copy())
     except (OSError, subprocess.CalledProcessError):
@@ -87,9 +85,8 @@ def set_property(property, value):
 
 def get_property(property):
     try:
-        cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/bin/euctl'), '-U', _get_properties_url(), property]
-        out = subprocess.Popen(cmd, env=os.environ.copy(),
-                               stdout=subprocess.PIPE).communicate()[0]
+        cmd = ['/usr/bin/euctl', '-U', _get_properties_url(), property]
+        out = subprocess.Popen(cmd, env=os.environ.copy(), stdout=subprocess.PIPE).communicate()[0]
         value = out.split()[-1]
         if value == "NULL":
             return None
