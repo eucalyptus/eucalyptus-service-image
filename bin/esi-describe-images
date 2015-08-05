@@ -35,20 +35,13 @@ import argparse
 import logging
 import os
 import re
-import subprocess
 import sys
 import boto
-import euca2ools
 import rpm
 from boto.sts import STSConnection
 from urlparse import urlparse
 from prettytable import PrettyTable
-
-(major, minor, patch) = euca2ools.__version__.split('-')[0].split('.')
-if int(major) < 3 or (int(major) >= 3 and int(minor) < 1):
-    print >> sys.stderr, "euca2ools version 3.1.0 or newer required."
-    sys.exit(1)
-
+from esitoolsupport import list_system_accounts, check_environment, get_property
 from requestbuilder.exceptions import ServiceInitError
 
 
@@ -59,31 +52,14 @@ class ServiceImageManager(object):
 
     def __init__(self):
         self._env = os.environ.copy()
-        self._check_environment()
+        check_environment()
         self._ec2 = boto.connect_ec2_endpoint(os.environ.get("EC2_URL"))
         token_url = urlparse(os.environ.get("TOKEN_URL"))
         STSConnection.DefaultRegionEndpoint = token_url.hostname
         port = token_url.port if token_url.port else 80
         self._sts = STSConnection(is_secure=False, port=port, path=token_url.path)
-        self._system_accounts = ServiceImageManager._list_system_accounts()
+        self._system_accounts = list_system_accounts()
         self._get_images()
-
-    def _check_binary(self, binary):
-        try:
-            with open(os.devnull, 'w') as nullfile:
-                subprocess.call(os.path.join(os.getenv("EUCALYPTUS", "/") + binary), env=self._env, stdout=nullfile)
-        except OSError:
-            print >> sys.stderr, "Error: cannot find '{0}' binary.".format(binary)
-            print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
-            sys.exit(1)
-
-    def _check_environment(self):
-        if not "EC2_URL" in self._env:
-            print >> sys.stderr, "Error: Unable to find EC2_URL"
-            print >> sys.stderr, "Make sure your eucarc is sourced."
-            sys.exit(1)
-        self._check_binary('/usr/bin/euare-accountlist')
-        self._check_binary('/usr/sbin/euca-describe-properties')
 
     def _get_images(self):
         filters = {'tag:type': [self.IMAGE_NAME]}
@@ -95,26 +71,13 @@ class ServiceImageManager(object):
         for package in matches:
             return package['version']
 
-    @staticmethod
-    def _list_system_accounts():
-        accounts = {}
-        process = subprocess.Popen([os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/bin/euare-accountlist')],
-                                   stdout=subprocess.PIPE)
-        t = process.communicate()
-        if process.returncode == 0:
-            for account in t[0].split('\n'):
-                a = account.split('\t')
-                if len(a) == 2:
-                    accounts[a[0]] = a[1]
-        return accounts
-
     def list(self, show_instances=False):
         table = PrettyTable(['SERVICE', 'VERSION', 'ACTIVE', 'IMAGE', 'INSTANCES'],
                             border=False)
         for service in self.PROVIDED_SERVICES:
             for image in self._get_images():
                 service_instances = self._get_service_instances(service, image.id)
-                if image.id == self.get_enabled(service):
+                if image.id == get_property('services.{0}.worker.image'.format(service)):
                     state = '*'
                 else:
                     state = ''
@@ -154,21 +117,6 @@ class ServiceImageManager(object):
             for reservation in self._ec2.get_all_instances(filters=old_filters):
                 instances += reservation.instances
         return instances
-
-    def get_enabled(self, service):
-        try:
-            cmd = [os.path.join(os.getenv("EUCALYPTUS", "/") + '/usr/sbin/euca-describe-properties'),
-                   'services.{0}.worker.image'.format(service)]
-            out = subprocess.Popen(cmd, env=self._env,
-                                   stdout=subprocess.PIPE).communicate()[0]
-            imageid = out.split()[-1]
-            if imageid == "NULL":
-                return None
-            else:
-                return imageid
-        except OSError:
-            print >> sys.stderr, "Error: failed to get {0} worker EMI.".format(service)
-            sys.exit(1)
 
     @classmethod
     def create(cls):
