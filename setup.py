@@ -34,9 +34,9 @@ def get_version():
         return "0"
 
 
-setup(name="Eucalyptus Service Image Toolset",
+setup(name="esitoolsupport",
       version=get_version(),
-      description="Support for Eucalyptus Service Image Tools",
+      description="Eucalyptus Service Image Tools",
       long_description="Support for Eucalyptus Service Image Tools",
       author="Vasiliy Kochergin",
       license="GPL v3",

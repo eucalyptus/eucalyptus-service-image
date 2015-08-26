@@ -9,65 +9,61 @@ Group:          Applications/System
 # License needs to be the *distro's* license (Fedora is GPLv2, for instance)
 License:        GPLv2
 URL:            http://www.eucalyptus.com/
+BuildArch:      noarch
 
-Source0:        %{name}-%{build_version}%{?build_id:-%build_id}.tgz
-# euimage metadata
-# Source1:        %{name}.yml
-# Image's OS's license
-Source2:        IMAGE-LICENSE
-# Kickstart used to build the image (included as documentation)
-Source3:        %{name}.ks
-# Describe images tool
-Source4:        esi-describe-images
-# Install tool
-Source5:        esi-install-image
-# Manage imaging stack tool
-Source6:        esi-manage-stack
+Source0:        %{name}-%{version}.tar.xz
 
-# BuildRequires:  euca2ools >= 3.2
+BuildRequires:  /usr/bin/virt-install
+BuildRequires:  /usr/bin/virt-sparsify
+BuildRequires:  /usr/bin/virt-sysprep
 
-Requires: python-prettytable
+Requires:       euca2ools
+Requires:       eucalyptus-admin-tools >= 4.2
+Requires:       python-prettytable
 
 Obsoletes:      eucalyptus-imaging-worker-image < 1.1
 Obsoletes:      eucalyptus-load-balancer-image < 1.2
-Provides:       euclayptus-imaging-worker-image
-Provides:       euclayptus-load-balancer-image
-Provides:       euclayptus-database-server-image
+Provides:       eucalyptus-imaging-worker-image
+Provides:       eucalyptus-load-balancer-image
+Provides:       eucalyptus-database-server-image = %{version}-%{release}
 
 
 %description
 This package contains a machine image for use in Eucalyptus to
 instantiate multiple internal services.
 
+
 %prep
-cp -p %{SOURCE2} %{SOURCE3} %{_builddir}
+%setup -q
+
 
 %build
-# Dont use euimage-pack yet
-# euimage-pack-image %{SOURCE0} %{SOURCE1}
-%{__python} setup.py build
+%configure
+make
+
 
 %install
-install -m 755 -d $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images
-install -m 644 %{SOURCE0} $RPM_BUILD_ROOT/usr/share/eucalyptus/service-images/%{name}.tgz
-install -m 755 -d $RPM_BUILD_ROOT/usr/bin
-install -m 755 %{SOURCE4} $RPM_BUILD_ROOT/usr/bin
-install -m 755 %{SOURCE5} $RPM_BUILD_ROOT/usr/bin
-install -m 755 %{SOURCE6} $RPM_BUILD_ROOT/usr/bin
-%{__python} setup.py install --skip-build --root $RPM_BUILD_ROOT
+make install DESTDIR=$RPM_BUILD_ROOT
+
 
 %files
 %defattr(-,root,root,-)
-%doc IMAGE-LICENSE %{name}.ks
-# Something else should probably own the service-images dir at some
-# point, but we can deal with that later when we have more than one.
-/usr/share/eucalyptus/service-images/%{name}.tgz
+%doc IMAGE-LICENSE
 /usr/bin/esi-describe-images
 /usr/bin/esi-install-image
 /usr/bin/esi-manage-stack
+%{python_sitelib}/esitoolsupport*
+# Something else should probably own the service-images dir at some
+# point, but we can deal with that later when we have more than one.
+/usr/share/eucalyptus/service-images/%{name}-%{version}.tar.xz
+
 
 %changelog
+* Wed Aug 26 2015 Eucalyptus Release Engineering <support@eucalyptus.com>
+- Use make instead of custom scripts
+
 * Fri Apr 24 2015 Eucalyptus Release Engineering <support@eucalyptus.com>
 - Use esi prefix for tools
+
 * Fri Dec 05 2014 Eucalyptus Release Engineering <support@eucalyptus.com>
 - Created

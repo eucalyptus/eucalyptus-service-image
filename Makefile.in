@@ -48,7 +48,7 @@ install-py: build-py
 	@PYTHON@ setup.py install -O1 --skip-build
 endif
 
-distdir: bin configure configure.ac esitoolsupport eucalyptus-service-image.ks IMAGE-LICENSE Makefile.in README.md setup.py
+distdir: bin configure configure.ac esitoolsupport eucalyptus-service-image.ks.in IMAGE-LICENSE Makefile.in README.md setup.py
 	rm -rf $(distdir)
 	mkdir -p $(distdir)
 	cp -pR $^ $(distdir)
