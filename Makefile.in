@@ -1,24 +1,32 @@
 CPUS    ?= 1
 MEMORY  ?= 1024
 DISK    ?= 2
-
-BASEURL ?= @INSTALL_TREE@
 MAX_RUNTIME ?= 30m
+
+prefix = @prefix@
+distdir = @PACKAGE_TARNAME@-@PACKAGE_VERSION@
+imagedir = @datadir@/eucalyptus/service-images
 
 define destroyvm
 virsh undefine $<; virsh destroy $<; true
 endef
 
-.PHONY: clean distclean image
+.PHONY: all build build-py clean dist distclean distdir image install install-py
 
-image: eucalyptus-service-image.tar.xz
+all: build
 
-eucalyptus-service-image.raw: eucalyptus-service-image.ks
+build: build/image/eucalyptus-service-image.raw build-py
+
+build-py: setup.py $(wildcard bin/*) $(wildcard esitoolsupport/*)
+	@PYTHON@ setup.py build
+
+build/image/eucalyptus-service-image.raw: eucalyptus-service-image.ks
+	mkdir -p build/image
 	$(destroyvm)
 	@TIMEOUT@ --foreground $(MAX_RUNTIME) virt-install --name $< \
 		--initrd-inject $< \
 		--extra-args ks="file:/$< console=tty0 console=ttyS0,115200" \
-		--location $(BASEURL) \
+		--location @INSTALL_TREE@ \
 		--disk $@,size=$(DISK) \
 		--vcpus $(CPUS) --ram $(MEMORY) \
 		--hvm --accelerate --nographics --noreboot \
@@ -26,12 +34,34 @@ eucalyptus-service-image.raw: eucalyptus-service-image.ks
 	@VIRT_SYSPREP@ -a $@
 	@VIRT_SPARSIFY@ --in-place $@
 
-eucalyptus-service-image.tar.xz: eucalyptus-service-image.raw
+%.tar.xz: %.raw
 	tar -cJS -f $@ $<
 
+install: build/image/eucalyptus-service-image.tar.xz install-py
+	install -D -m 0644 $< $(DESTDIR)$(imagedir)/@PACKAGE_TARNAME@-@PACKAGE_VERSION@.tar.xz
+
+ifdef DESTDIR
+install-py: build-py
+	@PYTHON@ setup.py install -O1 --skip-build --root $(DESTDIR)
+else
+install-py: build-py
+	@PYTHON@ setup.py install -O1 --skip-build
+endif
+
+distdir: bin configure configure.ac esitoolsupport eucalyptus-service-image.ks IMAGE-LICENSE Makefile.in README.md setup.py
+	rm -rf $(distdir)
+	mkdir -p $(distdir)
+	cp -pR $^ $(distdir)
+
+dist: distdir
+	mkdir -p dist
+	tar -cJ -f dist/$(distdir).tar.xz $(distdir)
+	rm -rf $(distdir)
+
 clean:
-	rm -f *.raw
-	rm -f *.xz
+	rm -rf build
+	rm -rf dist
+	rm -rf $(distdir)
 
 distclean: clean
 	rm -f  Makefile

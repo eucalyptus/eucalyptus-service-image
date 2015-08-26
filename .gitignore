@@ -1,0 +1,6 @@
+*.ks
+config.status
+config.log
+Makefile
+build/
+dist/

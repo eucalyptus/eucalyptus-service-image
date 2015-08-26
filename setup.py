@@ -1,4 +1,4 @@
-# Copyright 2009-2014 Eucalyptus Systems, Inc.
+# Copyright 2009-2015 Eucalyptus Systems, Inc.
 #
 # Redistribution and use of this software in source and binary forms,
 # with or without modification, are permitted provided that the following
@@ -24,9 +24,10 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from distutils.core import setup
+import glob
 
 
-def getVersion():
+def get_version():
     try:
         return open('VERSION').read().rstrip()
     except IOError:
@@ -34,13 +35,11 @@ def getVersion():
 
 
 setup(name="Eucalyptus Service Image Toolset",
-      version=getVersion(),
+      version=get_version(),
       description="Support for Eucalyptus Service Image Tools",
       long_description="Support for Eucalyptus Service Image Tools",
       author="Vasiliy Kochergin",
-      author_email="community@eucalyptus.com",
       license="GPL v3",
-      url="http://www.eucalytpus.com",
+      url="http://www.eucalyptus.com",
       packages=['esitoolsupport'],
-)
-
+      scripts=glob.glob('bin/esi-*'))

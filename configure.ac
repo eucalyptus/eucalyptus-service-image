@@ -26,6 +26,7 @@ AC_ARG_WITH(euca2ools-mirror,
     [  --with-euca2ools-mirror=<dir>   the location of the euca2ools mirror],
     [EUCA2OOLS="${withval}"])
 
+AC_PATH_PROG(PYTHON, python)
 AC_PATH_PROG(TIMEOUT, timeout)
 AC_PATH_PROG(VIRSH, virsh)
 AC_PATH_PROG(VIRT_SYSPREP, virt-sysprep)
