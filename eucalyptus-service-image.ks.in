@@ -1,53 +1,27 @@
-# Copyright 2010, Jeremy Katz
-# Jeremy Katz <katzj@fedoraproject.org>
-#
-# Copyright 2009-2013 Eucalyptus Systems, Inc.
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 3 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see http://www.gnu.org/licenses/.
-#
-# Please contact Eucalyptus Systems, Inc., 6755 Hollister Ave., Goleta
-# CA 93117, USA or visit http://www.eucalyptus.com/licenses/ if you need
-# additional information or have any questions.
-
-#
-# Eucalyptus Service Image
-# 
-# This image is meant to be distributed along with Eucalyptus
-#
-lang en_US.UTF-8
-keyboard us
-skipx
-timezone UTC
-auth --useshadow --passalgo=sha512
-selinux --disabled
-firewall --disabled
-bootloader --timeout=1  --append="xen_blkfront.sda_is_xvda=1 serial=tty0 console=ttyS0,115200n8"
-network --bootproto=dhcp --device=eth0 --onboot=on
-services --enabled=network,ntpd,ntpdate
-part / --size 1536 --grow --fstype ext3
-zerombr
-rootpw --iscrypted $1$HEVobWzu$6d5IWr.r7Df15XHLFCggW/
+install
+cmdline
 reboot
-#
-# Templated Repository Entries 
-{% for (name, urltype, url) in repos %}
-repo --name={{ name }} --{{ urltype }}={{ url }}
-{% endfor %}
+keyboard us
+lang en_US.UTF-8
+timezone UTC
+network --bootproto=dhcp --device=eth0 --onboot=on
+rootpw --iscrypted $1$HEVobWzu$6d5IWr.r7Df15XHLFCggW/
+auth --useshadow --passalgo=sha512
+firewall --disabled
+selinux --disabled
+services --enabled=network,ntpd,ntpdate
+skipx
+bootloader --timeout=1 --append="xen_blkfront.sda_is_xvda=1 serial=tty0 console=ttyS0,115200n8"
+clearpart --all
+zerombr
+part / --size 1536 --grow --fstype ext3
 
-#
-#
+url --url=@INSTALL_TREE@
+repo --name updates --baseurl=@UPDATES_MIRROR@
+repo --name epel --baseurl=@EPEL_MIRROR@
+repo --name eucalyptus --baseurl=@EUCALYPTUS_MIRROR@
+
 # Add all the packages after the base packages
-#
 %packages --nobase --excludedocs --instLangs=en
 @core
 audit
@@ -68,12 +42,11 @@ ntp
 ntpdate
 createrepo
 yum-utils
+
 epel-release
 cloud-init
 eucalyptus-service-image-release
 
-#
-# Package exclusions
 -plymouth
 -plymouth-system-theme
 -efibootmgr
@@ -108,13 +81,11 @@ eucalyptus-service-image-release
 -iwl6000g2a-firmware
 -iwl100-firmware
 -bfa-firmware
-
 %end
 
 %post --erroronfail --log=/root/kickstart-post.log
 set -x
 
-#
 # Setup console
 cat > /etc/init/ttyS0.conf <<EOF
 stop on runlevel[016]
@@ -127,53 +98,67 @@ EOF
 sed -i 's/rhgb quiet//' /boot/grub/grub.conf
 sed -i 's/hiddenmenu//' /boot/grub/grub.conf
 sed -i 's/splashimage.*//' /boot/grub/grub.conf
-#
-# Fix sudo settings so that servieces are able to run sudo without a tty
+
+# Configure sudo
 sed -i '/requiretty/s/^/#/' /etc/sudoers
 sed -i '/!visiblepw/s/^/#/' /etc/sudoers
+echo "cloud-user ALL = NOPASSWD: ALL" >> /etc/sudoers
 
-#
-# Disable zeroconf
+# Configure networking
 echo "NOZEROCONF=yes" >> /etc/sysconfig/network
 
-#
-# Lock root login (just in case)
+# Lock root login
+# future versions of anaconda have ``rootpw --lock''
 passwd -l root
 
-#
-# Update SSHD configuration
+# Configure sshd
 sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-
 cat >> /etc/ssh/sshd_config <<EOF
 UseDNS no
 PermitRootLogin without-password
 EOF
 
-cp /etc/yum.conf /tmp/yum-tmp.conf
-sed -i 's/cachedir=.*/cachedir=/' /tmp/yum-tmp.conf
+# Download service packages for installation at runtime
 cat >> /tmp/yum-tmp.conf <<EOF
+[main]
+keepcache=0
+exactarch=1
+obsoletes=1
+plugins=0
+distroverpkg=centos-release
+debuglevel=2
+logfile=/dev/null
+reposdir=/dev/null
 
-[eucalyptus-devel]
-name=eucalyptus-devel
-baseurl=http://packages.release.eucalyptus-systems.com/yum/tags/eucalyptus-devel/centos/6/x86_64/
+[base]
+name=base
+baseurl=@BASE_MIRROR@
 enabled=1
-gpgcheck=0
+
+[updates]
+name=updates
+baseurl=@UPDATES_MIRROR@
+enabled=1
+
+[epel]
+name=epel
+baseurl=@EPEL_MIRROR@
+enabled=1
+
+[eucalyptus]
+name=eucalyptus
+baseurl=@EUCALYPTUS_MIRROR@
+enabled=1
 
 [euca2ools]
-name=Euca2ools
-baseurl=http://packages.release.eucalyptus-systems.com/yum/tags/euca2ools-devel/centos/6/x86_64/
+name=euca2ools
+baseurl=@EUCA2OOLS_MIRROR@
 enabled=1
 EOF
 
-mkdir -p /var/lib/eucalyptus-service-image/packages
-pushd /var/lib/eucalyptus-service-image/packages
-yumdownloader -c /tmp/yum-tmp.conf --resolve eucalyptus-imaging-worker load-balancer-servo eucalyptus-database-server euca2ools
-createrepo .
-popd
+yumdownloader --resolve -c /tmp/yum-tmp.conf --destdir /var/lib/eucalyptus-service-image/packages eucalyptus-imaging-worker load-balancer-servo eucalyptus-database-server euca2ools
+createrepo /var/lib/eucalyptus-service-image/packages
 rm /tmp/yum-tmp.conf
-
-# Add cloud-user to sudo
-echo "cloud-user ALL = NOPASSWD: ALL" >> /etc/sudoers
-
 %end
 
+#vim: set syntax=kickstart:

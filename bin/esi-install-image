@@ -131,7 +131,7 @@ class ServiceImageManager(object):
 
     def install(self, tarball):
         ### Decompress image
-        decompress_cmd = "/bin/tar xzfv {0}".format(tarball)
+        decompress_cmd = "/bin/tar xJf {0}".format(tarball)
         print "Decompressing tarball: " + tarball
         decompress_stdout, decompress_stderr = self._run_command(decompress_cmd)
         ### Bundle and upload image
@@ -238,7 +238,7 @@ if __name__ == "__main__":
     elif args.install_default:
         print 'Installing Service Image...'
         try:
-            tarball = glob.glob('{0}/*.tgz'.format(DEFAULT_IMAGE_LOCATION))[0]
+            tarball = glob.glob('{0}/*.tar.xz'.format(DEFAULT_IMAGE_LOCATION))[0]
             print 'Found tarball {0}'.format(tarball)
             ism.install(tarball)
         except IndexError:

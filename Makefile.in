@@ -1,0 +1,41 @@
+CPUS    ?= 1
+MEMORY  ?= 1024
+DISK    ?= 2
+
+BASEURL ?= @INSTALL_TREE@
+MAX_RUNTIME ?= 30m
+
+define destroyvm
+virsh undefine $<; virsh destroy $<; true
+endef
+
+.PHONY: clean distclean image
+
+image: eucalyptus-service-image.tar.xz
+
+eucalyptus-service-image.raw: eucalyptus-service-image.ks
+	$(destroyvm)
+	@TIMEOUT@ --foreground $(MAX_RUNTIME) virt-install --name $< \
+		--initrd-inject $< \
+		--extra-args ks="file:/$< console=tty0 console=ttyS0,115200" \
+		--location $(BASEURL) \
+		--disk $@,size=$(DISK) \
+		--vcpus $(CPUS) --ram $(MEMORY) \
+		--hvm --accelerate --nographics --noreboot \
+		; STATUS=$$?; $(destroyvm); exit $$STATUS
+	@VIRT_SYSPREP@ -a $@
+	@VIRT_SPARSIFY@ --in-place $@
+
+eucalyptus-service-image.tar.xz: eucalyptus-service-image.raw
+	tar -cJS -f $@ $<
+
+clean:
+	rm -f *.raw
+	rm -f *.xz
+
+distclean: clean
+	rm -f  Makefile
+	rm -rf autom4te.cache
+	rm -f  config.log
+	rm -f  config.status
+	rm -f  *.ks
