@@ -1,6 +1,6 @@
 Name:           eucalyptus-service-image
 Version:        1
-Release:        0%{?build_id:.%build_id}%{?dist}
+Release:        0%{?dist}
 Summary:        Eucalyptus Service Image
 
 Group:          Applications/System
@@ -36,7 +36,7 @@ instantiate multiple internal services.
 
 
 %build
-%configure
+%configure %{?configure_opts}
 make
 
 
