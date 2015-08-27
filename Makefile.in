@@ -1,10 +1,12 @@
-CPUS    ?= 1
-MEMORY  ?= 1024
-DISK    ?= 2
+CPUS   ?= 1
+MEMORY ?= 1024
+DISK   ?= 2
 MAX_RUNTIME ?= 30m
 
-prefix = @prefix@
 distdir = @PACKAGE_TARNAME@-@PACKAGE_VERSION@
+prefix = @prefix@
+datarootdir = @datarootdir@
+datadir = @datadir@
 imagedir = @datadir@/eucalyptus/service-images
 
 define destroyvm
