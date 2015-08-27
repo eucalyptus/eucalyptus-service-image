@@ -1,7 +1,6 @@
 CPUS   ?= 1
 MEMORY ?= 1024
 DISK   ?= 2
-MAX_RUNTIME ?= 30m
 
 distdir = @PACKAGE_TARNAME@-@PACKAGE_VERSION@
 prefix = @prefix@
@@ -25,7 +24,7 @@ build-py: setup.py $(wildcard bin/*) $(wildcard esitoolsupport/*)
 build/image/eucalyptus-service-image.raw: eucalyptus-service-image.ks
 	mkdir -p build/image
 	$(destroyvm)
-	@TIMEOUT@ --foreground $(MAX_RUNTIME) virt-install --name $< \
+	@VIRT_INSTALL@ --name $< \
 		--initrd-inject $< \
 		--extra-args ks="file:/$< console=tty0 console=ttyS0,115200" \
 		--location @INSTALL_TREE@ \
