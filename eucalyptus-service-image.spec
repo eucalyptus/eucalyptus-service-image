@@ -1,7 +1,5 @@
-%{!?build_version: %global build_version 0}
-
 Name:           eucalyptus-service-image
-Version:        %{build_version}
+Version:        1
 Release:        0%{?build_id:.%build_id}%{?dist}
 Summary:        Eucalyptus Service Image
 
