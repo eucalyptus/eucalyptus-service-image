@@ -129,7 +129,7 @@ class ServiceImageManager(object):
         for package in matches:
             return package['version']
 
-    def install(self, tarball):
+    def install(self, tarball, version=None):
         ### Decompress image
         decompress_cmd = "/bin/tar xJf {0}".format(tarball)
         print "Decompressing tarball: " + tarball
@@ -137,7 +137,8 @@ class ServiceImageManager(object):
         ### Bundle and upload image
         image_file = decompress_stdout.strip()
 
-        version_string = self._get_image_version()
+        version_string = self._get_image_version() if version is None \
+            else "0.{0}".format(version)
         bucket = self.IMAGE_NAME + '-' + version_string
         image_name = "{0}-v{1}".format(self.IMAGE_NAME, version_string)
         print "Bundling, uploading and registering image to bucket: " + bucket
@@ -229,6 +230,10 @@ if __name__ == "__main__":
     parser.add_argument('--force', action='store_true', help='''Force
                         an operation. This will force removal of
                         enabled Service images.''')
+    parser.add_argument('--set-version', help='''Overwrites image version
+                        with provided value. Please use it careful''')
+
+
 
     args = parser.parse_args()
     ism = ServiceImageManager.create()
