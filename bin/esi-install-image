@@ -131,12 +131,12 @@ class ServiceImageManager(object):
 
     def install(self, tarball, version=None):
         ### Decompress image
-        decompress_cmd = "/bin/tar xJf {0}".format(tarball)
+        decompress_cmd = "/bin/tar vxJf {0}".format(tarball)
         print "Decompressing tarball: " + tarball
         decompress_stdout, decompress_stderr = self._run_command(decompress_cmd)
         ### Bundle and upload image
         image_file = decompress_stdout.strip()
-
+        print "Installing image from {0}".format(image_file)
         version_string = self._get_image_version() if version is None \
             else "0.{0}".format(version)
         bucket = self.IMAGE_NAME + '-' + version_string
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     ism = ServiceImageManager.create()
 
     if args.tarball:
-        ism.install(args.tarball)
+        ism.install(args.tarball, args.set_version if args.set_version is not None else None)
     elif args.install_default:
         print 'Installing Service Image...'
         try:
