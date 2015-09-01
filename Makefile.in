@@ -39,7 +39,7 @@ build/image/eucalyptus-service-image.raw: eucalyptus-service-image.ks
 	mv $@.sparse $@
 
 %.tar.xz: %.raw
-	tar -cJS -f $@ $<
+	tar -cJS -C $$(dirname $<) -f $@ $$(basename $<)
 
 install: build/image/eucalyptus-service-image.tar.xz install-py
 	install -D -m 0644 $< $(DESTDIR)$(imagedir)/@PACKAGE_TARNAME@-@PACKAGE_VERSION@.tar.xz
