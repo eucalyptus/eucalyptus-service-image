@@ -239,7 +239,7 @@ if __name__ == "__main__":
     ism = ServiceImageManager.create()
 
     if args.tarball:
-        ism.install(args.tarball, args.set_version if args.set_version is not None else None)
+        ism.install(args.tarball, args.set_version)
     elif args.install_default:
         print 'Installing Service Image...'
         try:
