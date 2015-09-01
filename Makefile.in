@@ -35,8 +35,8 @@ build/image/eucalyptus-service-image.raw: eucalyptus-service-image.ks
 		--hvm --accelerate --noreboot \
 		; STATUS=$$?; $(destroyvm); exit $$STATUS
 	@VIRT_SYSPREP@ -a $@
-	@VIRT_SPARSIFY@ $@ $@.sparse
-	mv $@.sparse $@
+	#@VIRT_SPARSIFY@ $@ $@.sparse
+	#mv $@.sparse $@
 
 %.tar.xz: %.raw
 	tar -cJS -f $@ $<
