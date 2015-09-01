@@ -24,8 +24,7 @@ build-py: setup.py $(wildcard bin/*) $(wildcard esitoolsupport/*)
 build/image/eucalyptus-service-image.raw: eucalyptus-service-image.ks
 	mkdir -p build/image
 	$(destroyvm)
-	@PYTHON@ -c 'import pty, sys; pty.spawn(sys.argv[1:])' \
-		@VIRT_INSTALL@ --name $< \
+	@VIRT_INSTALL@ --name $< \
 		--initrd-inject $< \
 		--extra-args ks="file:/$< console=tty0 console=ttyS0,115200 serial" \
 		--location @INSTALL_TREE@ \
@@ -33,10 +32,11 @@ build/image/eucalyptus-service-image.raw: eucalyptus-service-image.ks
 		--vcpus $(CPUS) --ram $(MEMORY) \
 		--graphics none \
 		--hvm --accelerate --noreboot \
-		; STATUS=$$?; $(destroyvm); exit $$STATUS
+		--noautoconsole --console pty,target_type=serial \
+		; STATUS=$$?; exit $$STATUS
+	while virsh list | grep $<; do echo "Waiting for vm to complete"; sleep 30; done
 	@VIRT_SYSPREP@ -a $@
-	@VIRT_SPARSIFY@ $@ $@.sparse
-	mv $@.sparse $@
+	$(destroyvm);
 
 %.tar.xz: %.raw
 	tar -cJS -f $@ $<
