@@ -50,7 +50,7 @@ def _check_binary(binary):
         with open(os.devnull, 'w') as nullfile:
             subprocess.call(binary, env=os.environ.copy(), stdout=nullfile)
     except OSError:
-        print >> sys.stderr, "Error: cannot find '{0}' binary.".format(binary)
+        print >> sys.stderr, "Error: cannot execute '{0}' binary.".format(" ".join(binary))
         print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
         sys.exit(1)
 
@@ -68,7 +68,7 @@ def check_environment():
         print >> sys.stderr, "Error: Unable to find EC2_URL"
         print >> sys.stderr, "Make sure your eucarc is sourced."
         sys.exit(1)
-    for b in ['/usr/bin/euare-accountlist', '/usr/bin/euctl']:
+    for b in [['/usr/bin/euare-accountlist'], ['/usr/bin/euctl', '-U', _get_properties_url()]]:
         _check_binary(b)
 
 

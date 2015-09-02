@@ -129,15 +129,16 @@ class ServiceImageManager(object):
         for package in matches:
             return package['version']
 
-    def install(self, tarball):
+    def install(self, tarball, version=None):
         ### Decompress image
-        decompress_cmd = "/bin/tar xJf {0}".format(tarball)
+        decompress_cmd = "/bin/tar vxJf {0}".format(tarball)
         print "Decompressing tarball: " + tarball
         decompress_stdout, decompress_stderr = self._run_command(decompress_cmd)
         ### Bundle and upload image
         image_file = decompress_stdout.strip()
-
-        version_string = self._get_image_version()
+        print "Installing image from {0}".format(image_file)
+        version_string = self._get_image_version() if version is None \
+            else "0.{0}".format(version)
         bucket = self.IMAGE_NAME + '-' + version_string
         image_name = "{0}-v{1}".format(self.IMAGE_NAME, version_string)
         print "Bundling, uploading and registering image to bucket: " + bucket
@@ -211,8 +212,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description=description, epilog=epilog)
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-t', '--tarball', metavar='TARBALL',
-                       help='Service tarball to install')
+    group.add_argument('-t', '--tarball', metavar='TARBALL', help=argparse.SUPPRESS)
     group.add_argument('--install-default', action='store_true',
                        help='''This option must be supplied if you
                        would like to install the default tarball''')
@@ -229,12 +229,15 @@ if __name__ == "__main__":
     parser.add_argument('--force', action='store_true', help='''Force
                         an operation. This will force removal of
                         enabled Service images.''')
+    parser.add_argument('--force-version', help=argparse.SUPPRESS)
+
+
 
     args = parser.parse_args()
     ism = ServiceImageManager.create()
 
     if args.tarball:
-        ism.install(args.tarball)
+        ism.install(args.tarball, args.force_version)
     elif args.install_default:
         print 'Installing Service Image...'
         try:
