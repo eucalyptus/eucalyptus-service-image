@@ -39,6 +39,7 @@ from urlparse import urlparse
 import boto.cloudformation
 from esitoolsupport import list_system_accounts, check_environment, set_property
 
+
 class StackManager(object):
     def __init__(self):
         check_environment()
@@ -48,39 +49,64 @@ class StackManager(object):
         set_property(service_property, 'true' if value else 'false')
 
     def enable(self, stack):
-        self.set_property(True, stack)
+        state = self._get_stack_status(stack, False)
+        if state["status"] == 'NOT_FOUND':
+            self.set_property(True, stack)
+        elif state["status"] == 'CREATE_COMPLETE':
+            print "Stack '{0}' is already created.".format(state["name"])
+        else:
+            print "Stack '{0}' currently is in {1} state. Please wait till the end of " \
+                  "previous stack change operation.".format(state["name"], state["status"])
 
     def disable(self, stack):
-        self.set_property(False, stack)
+        state = self._get_stack_status(stack)
+        if state["status"] == 'CREATE_COMPLETE':
+            self.set_property(False, stack)
+        elif state["status"] == 'DELETE_IN_PROGRESS':
+            print "Stack '{0}' is already in {1} state.".format(state["name"], state["status"])
+        else:
+            print "There are no '{0}' stack to delete".format(state["name"])
 
-    def check(self, stack):
+    def _get_euform_conn(selfs, stack):
         system_accounts = list_system_accounts();
         token_url = urlparse(os.environ.get("TOKEN_URL"))
         cloudform_url = urlparse(os.environ.get("AWS_CLOUDFORMATION_URL"))
         STSConnection.DefaultRegionEndpoint = token_url.hostname
         port = token_url.port if token_url.port else 80
         sts = STSConnection(is_secure=False, port=port, path=token_url.path)
-        role_arn="arn:aws:iam::{0}:role/{1}/{2}ServiceAdministrator".format(
-                system_accounts['(eucalyptus){0}'.format(stack)],
-                stack, stack.capitalize())
+        role_arn = "arn:aws:iam::{0}:role/{1}/{2}ServiceAdministrator".format(
+            system_accounts['(eucalyptus){0}'.format(stack)],
+            stack, stack.capitalize())
         role = sts.assume_role(role_arn=role_arn, role_session_name='Service')
         CloudFormationConnection.DefaultRegionEndpoint = cloudform_url.hostname
-        euform_conn =  boto.cloudformation.connection.CloudFormationConnection(
+        euform_conn = boto.cloudformation.connection.CloudFormationConnection(
             aws_access_key_id=role.credentials.access_key,
             aws_secret_access_key=role.credentials.secret_key,
             security_token=role.credentials.session_token,
             port=port, is_secure=False, path=cloudform_url.path)
-        stacks = euform_conn.describe_stacks()
+        return euform_conn
+
+    def _get_stack_status(self, stack, exit_on_no_stack=True):
+        stacks = self._get_euform_conn(stack).describe_stacks()
         if len(stacks) > 1:
             print "There are several active stacks in '{0}' service account. Something went wrong".format(stacks)
             sys.exit(1)
         if len(stacks) == 0:
-            print "There is no active stacks in '{0}' service account".format(stack)
-            sys.exit(1)
+            if exit_on_no_stack:
+                print "There is no active stacks in '{0}' service account".format(stack)
+                sys.exit(1)
+            else:
+                return {"status": "NOT_FOUND"}
         stack_name = stacks[0].stack_name
         stack_status = stacks[0].stack_status
-        if stack_name == 'DELETE_FAILED':
-            stack_res = euform_conn.describe_stack_resources(stack_name)
+        return {"status": stack_status, "name": stack_name}
+
+    def check(self, stack):
+        state = self._get_stack_status(stack)
+        stack_status = state["status"]
+        stack_name = state["name"]
+        if stack_status == 'DELETE_FAILED':
+            stack_res = self._get_euform_conn(stack).describe_stack_resources(stack_name)
             for r in stack_res:
                 if r.resource_status == 'DELETE_FAILED':
                     print "Please manually delete {0} with id {1} to unblock stack delete process".format(
