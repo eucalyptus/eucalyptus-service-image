@@ -68,6 +68,11 @@ class StackManager(object):
             print "There are no '{0}' stack to delete".format(state["name"])
 
     def _get_euform_conn(selfs, stack):
+        if os.environ.get("TOKEN_URL") is None or os.environ.get("AWS_CLOUDFORMATION_URL") is None:
+            print "WARNING: Can't get stack status. Please make sure that you have " \
+                  "Eucalyptus services up and running and env variables AWS_CLOUDFORMATION_URL " \
+                  "and TOKEN_URL are set appropriately!"
+            return None
         system_accounts = list_system_accounts();
         token_url = urlparse(os.environ.get("TOKEN_URL"))
         cloudform_url = urlparse(os.environ.get("AWS_CLOUDFORMATION_URL"))
@@ -87,7 +92,10 @@ class StackManager(object):
         return euform_conn
 
     def _get_stack_status(self, stack, exit_on_no_stack=True):
-        stacks = self._get_euform_conn(stack).describe_stacks()
+        conn = self._get_euform_conn(stack)
+        if conn is None:
+            return {"status": "NOT_FOUND"}
+        stacks = conn.describe_stacks()
         if len(stacks) > 1:
             print "There are several active stacks in '{0}' service account. Something went wrong".format(stacks)
             sys.exit(1)
@@ -111,6 +119,8 @@ class StackManager(object):
                 if r.resource_status == 'DELETE_FAILED':
                     print "Please manually delete {0} with id {1} to unblock stack delete process".format(
                         r.logical_resource_id, r.physical_resource_id)
+        elif stack_status == 'NOT_FOUND':
+            print "Can not detect stack status for {0} service".format(stack)
         elif stack_status == 'CREATE_FAILED':
             print 'Stack creation failed. You need to check system logs for errors.'
         else:
