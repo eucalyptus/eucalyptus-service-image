@@ -15,7 +15,7 @@ BuildRequires:  /usr/bin/virt-install
 BuildRequires:  /usr/bin/virt-sparsify
 BuildRequires:  /usr/bin/virt-sysprep
 
-Requires:       euca2ools
+Requires:       euca2ools >= 3.3
 Requires:       eucalyptus-admin-tools >= 4.2
 Requires:       python-prettytable
 
@@ -57,6 +57,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Sep 28 2015 Eucalyptus Release Engineering <support@eucalyptus.com>
+- Pulled in euca2ools 3.3 for euca-generate-environment-config
+
 * Wed Aug 26 2015 Eucalyptus Release Engineering <support@eucalyptus.com>
 - Use make instead of custom scripts
 
