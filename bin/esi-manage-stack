@@ -31,22 +31,22 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import sys
-import os
 import argparse
 from boto.cloudformation import CloudFormationConnection
 from boto.sts import STSConnection
 from urlparse import urlparse
 import boto.cloudformation
-from esitoolsupport import list_system_accounts, check_environment, set_property
+from esitoolsupport.esibase import EsiBase
 
 
-class StackManager(object):
-    def __init__(self):
-        check_environment()
+class StackManager(EsiBase):
+
+    def __init__(self, region):
+        super(self.__class__, self).__init__(region if region else 'localhost')
 
     def set_property(self, value, stack):
         service_property = 'services.{0}.worker.configured'.format(stack)
-        set_property(service_property, 'true' if value else 'false')
+        self._set_property(service_property, 'true' if value else 'false')
 
     def enable(self, stack):
         state = self._get_stack_status(stack, False)
@@ -67,18 +67,20 @@ class StackManager(object):
         else:
             print "There are no '{0}' stack to delete".format(state["name"])
 
-    def _get_euform_conn(selfs, stack):
-        if os.environ.get("TOKEN_URL") is None or os.environ.get("AWS_CLOUDFORMATION_URL") is None:
+    def _get_euform_conn(self, stack):
+        if self.get_env_var("TOKEN_URL") is None or self.get_env_var("AWS_CLOUDFORMATION_URL") is None:
             print "WARNING: Can't get stack status. Please make sure that you have " \
                   "Eucalyptus services up and running and env variables AWS_CLOUDFORMATION_URL " \
                   "and TOKEN_URL are set appropriately!"
             return None
-        system_accounts = list_system_accounts();
-        token_url = urlparse(os.environ.get("TOKEN_URL"))
-        cloudform_url = urlparse(os.environ.get("AWS_CLOUDFORMATION_URL"))
+        system_accounts = self.list_system_accounts()
+        token_url = urlparse(self.get_env_var("TOKEN_URL"))
+        cloudform_url = urlparse(self.get_env_var("AWS_CLOUDFORMATION_URL"))
         STSConnection.DefaultRegionEndpoint = token_url.hostname
         port = token_url.port if token_url.port else 80
-        sts = STSConnection(is_secure=False, port=port, path=token_url.path)
+        sts = STSConnection(is_secure=False, port=port, path=token_url.path,
+                                aws_access_key_id=self.get_env_var('AWS_ACCESS_KEY_ID'),
+                                aws_secret_access_key=self.get_env_var('AWS_SECRET_ACCESS_KEY'))
         role_arn = "arn:aws:iam::{0}:role/{1}/{2}ServiceAdministrator".format(
             system_accounts['(eucalyptus){0}'.format(stack)],
             stack, stack.capitalize())
@@ -112,9 +114,8 @@ class StackManager(object):
     def check(self, stack):
         state = self._get_stack_status(stack)
         stack_status = state["status"]
-        stack_name = state["name"]
         if stack_status == 'DELETE_FAILED':
-            stack_res = self._get_euform_conn(stack).describe_stack_resources(stack_name)
+            stack_res = self._get_euform_conn(stack).describe_stack_resources(state["name"])
             for r in stack_res:
                 if r.resource_status == 'DELETE_FAILED':
                     print "Please manually delete {0} with id {1} to unblock stack delete process".format(
@@ -124,7 +125,7 @@ class StackManager(object):
         elif stack_status == 'CREATE_FAILED':
             print 'Stack creation failed. You need to check system logs for errors.'
         else:
-            print "Stack '{0}' currently is in {1} state.".format(stack_name, stack_status)
+            print "Stack '{0}' currently is in {1} state.".format(state["name"], stack_status)
 
 
 if __name__ == "__main__":
@@ -134,19 +135,18 @@ if __name__ == "__main__":
     This tool provides an easy way to create or delete stack for
     Eucalyptus Service image.
     '''
-    epilog = '''
-    NOTE: In order to use this you MUST have cloud administrator
-    credentials sourced in your environment (i.e., run the command
-    '. /my/cred/path/eucarc').'''
+
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     description=description, epilog=epilog)
+                                     description=description)
     parser.add_argument('-a', '--action', help='Action to take (create, check or delete) for the service image stack',
                         choices=['create', 'delete', 'check'])
     parser.add_argument('stack', help='Service image stack name (imaging or database)',
                         choices=['imaging', 'database'])
+    parser.add_argument('--region', metavar='REGION', help=('region '
+                    'name to search when looking up config file data'))
 
     args = parser.parse_args()
-    sm = StackManager()
+    sm = StackManager(args.region)
 
     if args.action == 'create':
         sm.enable(args.stack)

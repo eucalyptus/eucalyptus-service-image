@@ -15,7 +15,7 @@ BuildRequires:  /usr/bin/virt-install
 BuildRequires:  /usr/bin/virt-sparsify
 BuildRequires:  /usr/bin/virt-sysprep
 
-Requires:       euca2ools
+Requires:       euca2ools >= 3.3
 Requires:       eucalyptus-admin-tools >= 4.2
 Requires:       python-prettytable
 
