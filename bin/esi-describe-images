@@ -90,11 +90,12 @@ class ServiceImageManager(EsiBase):
         # before 4.2 loadbalancing instances were running under cloud admin user with a different tag
         if 'loadbalancing' == service:
             old_filters = {'tag:Name': 'loadbalancer-resources',
-                   'instance-state-name': 'running',
-                   'image-id': image_id}
+                           'instance-state-name': 'running',
+                           'image-id': image_id}
             for reservation in self._ec2.get_all_instances(filters=old_filters):
                 instances += reservation.instances
         return instances
+
 
 if __name__ == "__main__":
     description = '''
@@ -116,7 +117,7 @@ if __name__ == "__main__":
                                      description=description)
     parser.add_argument('--show-instances', action='store_true', help='')
     parser.add_argument('--region', metavar='REGION', help=('region '
-                    'name to search when looking up config file data'))
+                                                            'name to search when looking up config file data'))
     args = parser.parse_args()
 
     ism = ServiceImageManager(args.region)

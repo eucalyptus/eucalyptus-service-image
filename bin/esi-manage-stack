@@ -27,7 +27,6 @@ from esitoolsupport.esibase import EsiBase
 
 
 class StackManager(EsiBase):
-
     def __init__(self, region):
         super(self.__class__, self).__init__(region if region else 'localhost')
 
@@ -126,7 +125,7 @@ if __name__ == "__main__":
     parser.add_argument('stack', help='Service image stack name (imaging or database)',
                         choices=['imaging', 'database'])
     parser.add_argument('--region', metavar='REGION', help=('region '
-                    'name to search when looking up config file data'))
+                                                            'name to search when looking up config file data'))
 
     args = parser.parse_args()
     sm = StackManager(args.region)

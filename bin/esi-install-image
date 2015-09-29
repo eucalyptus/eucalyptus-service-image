@@ -98,7 +98,7 @@ class ServiceImageManager(EsiBase):
         stderr = pipe.stderr.read()
         if pipe.returncode > 0:
             print "Error: Unable to install imaging worker due to:\n" \
-                                 + stdout + stderr
+                  + stdout + stderr
             sys.exit(1)
         return (stdout, stderr)
 
@@ -136,12 +136,12 @@ class ServiceImageManager(EsiBase):
         image_name = "{0}-v{1}".format(self.IMAGE_NAME, version_string)
         print "Bundling, uploading and registering image to bucket: " + bucket
         bundle_stdout, bundle_stderr = \
-                    self._run_command(['euca-install-image',
-                                       '-b', bucket, '-i', image_file,
-                                       '-r',  'x86_64', '-n', image_name, '--virt', 'hvm',
-                                       '--region', self.region,
-                                       '--user', self.get_env_var('EC2_USER_ID'),
-                                       '--ec2cert', self.get_env_var('EUCALYPTUS_CERT')])
+            self._run_command(['euca-install-image',
+                               '-b', bucket, '-i', image_file,
+                               '-r', 'x86_64', '-n', image_name, '--virt', 'hvm',
+                               '--region', self.region,
+                               '--user', self.get_env_var('EC2_USER_ID'),
+                               '--ec2cert', self.get_env_var('EUCALYPTUS_CERT')])
         # HACK: Popping the second to
         #       last line off of install (ie the IMAGE line)
         emi_id = bundle_stdout.split('\n')[-2].split().pop()
@@ -166,6 +166,7 @@ class ServiceImageManager(EsiBase):
 
     def enable(self, imageid, service):
         self._set_property('services.{0}.worker.image'.format(service), imageid)
+
 
 if __name__ == "__main__":
     description = '''
@@ -204,8 +205,7 @@ if __name__ == "__main__":
                         enabled Service images.''')
     parser.add_argument('--force-version', help=argparse.SUPPRESS)
     parser.add_argument('--region', metavar='REGION', help=('region '
-                    'name to search when looking up config file data'))
-
+                                                            'name to search when looking up config file data'))
 
     args = parser.parse_args()
     ism = ServiceImageManager(args.region)

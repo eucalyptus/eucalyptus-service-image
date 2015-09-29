@@ -22,8 +22,8 @@ import os
 from urlparse import urlparse
 from boto.sts import STSConnection
 
-class EsiBase(object):
 
+class EsiBase(object):
     def __init__(self, region='localhost'):
         self.vars = {}
         self.region = region
@@ -36,8 +36,8 @@ class EsiBase(object):
         STSConnection.DefaultRegionEndpoint = token_url.hostname
         port = token_url.port if token_url.port else 80
         return STSConnection(is_secure=False, port=port, path=token_url.path,
-                                aws_access_key_id=self.get_env_var('AWS_ACCESS_KEY_ID'),
-                                aws_secret_access_key=self.get_env_var('AWS_SECRET_ACCESS_KEY'))
+                             aws_access_key_id=self.get_env_var('AWS_ACCESS_KEY_ID'),
+                             aws_secret_access_key=self.get_env_var('AWS_SECRET_ACCESS_KEY'))
 
     def _set_environment(self):
         for i in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
