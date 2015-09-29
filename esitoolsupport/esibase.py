@@ -25,7 +25,7 @@ import sys
 import subprocess
 import os
 from urlparse import urlparse
-
+from boto.sts import STSConnection
 
 class EsiBase(object):
 
@@ -34,13 +34,23 @@ class EsiBase(object):
         self.region = region
         self._load_vars()
         self.check_environment()
+        self._set_environment()
+
+    def get_sts_connection(self):
+        token_url = urlparse(self.vars['TOKEN_URL'])
+        STSConnection.DefaultRegionEndpoint = token_url.hostname
+        port = token_url.port if token_url.port else 80
+        return STSConnection(is_secure=False, port=port, path=token_url.path,
+                                aws_access_key_id=self.get_env_var('AWS_ACCESS_KEY_ID'),
+                                aws_secret_access_key=self.get_env_var('AWS_SECRET_ACCESS_KEY'))
+
+    def _set_environment(self):
+        for i in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
+            os.environ[i] = self.vars[i]
 
     def list_system_accounts(self):
         accounts = {}
-        process = subprocess.Popen(['/usr/bin/euare-accountlist',
-                                    '-U', self.vars["AWS_IAM_URL"],
-                                    '-I', self.vars["AWS_ACCESS_KEY_ID"],
-                                    '-S', self.vars["AWS_SECRET_ACCESS_KEY"]],
+        process = subprocess.Popen(['/usr/bin/euare-accountlist', '-U', self.vars['AWS_IAM_URL']],
                                    stdout=subprocess.PIPE)
         t = process.communicate()
         if process.returncode == 0:
@@ -71,10 +81,10 @@ class EsiBase(object):
             print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
             sys.exit(1)
 
+    # if EUCA_PROPERTIES_URL is not set let's assume that the command is invoked on CLC
     def _get_properties_url(self):
-        url = urlparse(self.vars["EC2_URL"])
-        port = url.port if url.port else 80
-        return "{0}://{1}:{2}{3}".format(url.scheme, url.hostname, port, '/services/Properties')
+        return self.vars['EUCA_PROPERTIES_URL'] if self.vars['EUCA_PROPERTIES_URL'] \
+            else 'http://127.0.0.1:8773/services/Properties/'
 
     def check_environment(self):
         if self.vars["EC2_URL"] is None or \
@@ -86,11 +96,9 @@ class EsiBase(object):
 
     def _set_property(self, property, value):
         cmd = ['/usr/bin/euctl', '-U', self._get_properties_url(),
-               '-I', self.vars["AWS_ACCESS_KEY_ID"],
-               '-S', self.vars["AWS_SECRET_ACCESS_KEY"],
                "{0}={1}".format(property, value)]
         try:
-            subprocess.check_call(cmd, env=os.environ.copy())
+            subprocess.check_call(cmd)
         except (OSError, subprocess.CalledProcessError):
             print >> sys.stderr, "Error: failed to set property {0} to {1}".format(property, value)
             print >> sys.stderr, "To set it manually run this command:"
@@ -99,10 +107,7 @@ class EsiBase(object):
 
     def _get_property(self, property):
         try:
-            cmd = ['/usr/bin/euctl', '-U', self._get_properties_url(),
-                   '-I', self.vars["AWS_ACCESS_KEY_ID"],
-                   '-S', self.vars["AWS_SECRET_ACCESS_KEY"],
-                   property]
+            cmd = ['/usr/bin/euctl', '-U', self._get_properties_url(), property]
             out = subprocess.Popen(cmd, env=os.environ.copy(), stdout=subprocess.PIPE).communicate()[0]
             value = out.split()[-1]
             return value if value else None

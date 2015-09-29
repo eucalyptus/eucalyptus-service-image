@@ -33,7 +33,6 @@
 import sys
 import argparse
 from boto.cloudformation import CloudFormationConnection
-from boto.sts import STSConnection
 from urlparse import urlparse
 import boto.cloudformation
 from esitoolsupport.esibase import EsiBase
@@ -74,17 +73,13 @@ class StackManager(EsiBase):
                   "and TOKEN_URL are set appropriately!"
             return None
         system_accounts = self.list_system_accounts()
-        token_url = urlparse(self.get_env_var("TOKEN_URL"))
-        cloudform_url = urlparse(self.get_env_var("AWS_CLOUDFORMATION_URL"))
-        STSConnection.DefaultRegionEndpoint = token_url.hostname
-        port = token_url.port if token_url.port else 80
-        sts = STSConnection(is_secure=False, port=port, path=token_url.path,
-                                aws_access_key_id=self.get_env_var('AWS_ACCESS_KEY_ID'),
-                                aws_secret_access_key=self.get_env_var('AWS_SECRET_ACCESS_KEY'))
+        sts = self.get_sts_connection()
         role_arn = "arn:aws:iam::{0}:role/{1}/{2}ServiceAdministrator".format(
             system_accounts['(eucalyptus){0}'.format(stack)],
             stack, stack.capitalize())
         role = sts.assume_role(role_arn=role_arn, role_session_name='Service')
+        cloudform_url = urlparse(self.get_env_var("AWS_CLOUDFORMATION_URL"))
+        port = cloudform_url.port if cloudform_url.port else 80
         CloudFormationConnection.DefaultRegionEndpoint = cloudform_url.hostname
         euform_conn = boto.cloudformation.connection.CloudFormationConnection(
             aws_access_key_id=role.credentials.access_key,

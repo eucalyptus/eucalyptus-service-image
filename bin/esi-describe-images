@@ -35,8 +35,6 @@ import argparse
 import re
 import boto
 import rpm
-from boto.sts import STSConnection
-from urlparse import urlparse
 from prettytable import PrettyTable
 from esitoolsupport.esibase import EsiBase
 
@@ -48,15 +46,8 @@ class ServiceImageManager(EsiBase):
 
     def __init__(self, region):
         super(self.__class__, self).__init__(region if region else 'localhost')
-        self._ec2 = boto.connect_ec2_endpoint(self.get_env_var('EC2_URL'),
-                                        aws_access_key_id=self.get_env_var('AWS_ACCESS_KEY_ID'),
-                                        aws_secret_access_key=self.get_env_var('AWS_SECRET_ACCESS_KEY'))
-        token_url = urlparse(self.get_env_var('TOKEN_URL'))
-        STSConnection.DefaultRegionEndpoint = token_url.hostname
-        port = token_url.port if token_url.port else 80
-        self._sts = STSConnection(is_secure=False, port=port, path=token_url.path,
-                                aws_access_key_id=self.get_env_var('AWS_ACCESS_KEY_ID'),
-                                aws_secret_access_key=self.get_env_var('AWS_SECRET_ACCESS_KEY'))
+        self._ec2 = boto.connect_ec2_endpoint(self.get_env_var('EC2_URL'))
+        self._sts = self.get_sts_connection()
         self._system_accounts = self.list_system_accounts()
         self._get_images()
 

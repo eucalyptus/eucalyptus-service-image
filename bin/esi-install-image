@@ -64,9 +64,7 @@ class ServiceImageManager(EsiBase):
 
     def __init__(self, region):
         super(self.__class__, self).__init__(region if region else 'localhost')
-        self._ec2 = boto.connect_ec2_endpoint(self.get_env_var('EC2_URL'),
-                                        aws_access_key_id=self.get_env_var('AWS_ACCESS_KEY_ID'),
-                                        aws_secret_access_key=self.get_env_var('AWS_SECRET_ACCESS_KEY'))
+        self._ec2 = boto.connect_ec2_endpoint(self.get_env_var('EC2_URL'))
         self._populate_images()
 
 
@@ -98,29 +96,15 @@ class ServiceImageManager(EsiBase):
 
             if should_remove:
                 for image in image_set:
-                    deregister_cmd = "/usr/bin/euca-deregister {0} --region {1} " \
-                                     "-I {2} -S {3} ".format(image.id,
-                                                             self.region,
-                                                             self.get_env_var('AWS_ACCESS_KEY_ID'),
-                                                             self.get_env_var('AWS_SECRET_ACCESS_KEY'))
-                    deregister_output = subprocess.Popen(deregister_cmd, stdout=subprocess.PIPE,
-                                                            stderr=subprocess.PIPE, shell=True)
-                    deregister_output.wait()
+                    self._run_command(['/usr/bin/euca-deregister', image.id, '--region', self.region])
                     (bucket, prefix) = self._split_location(image.location)
-                    delete_bundle_cmd = "/usr/bin/euca-delete-bundle -b {0}/{1} " \
-                                        "--region {2} -I {3}" \
-                                        " -S {4} ".format(bucket, prefix,
-                                                          self.region,
-                                                          self.get_env_var('AWS_ACCESS_KEY_ID'),
-                                                          self.get_env_var('AWS_SECRET_ACCESS_KEY'))
-                    delete_bundle_output = subprocess.Popen(delete_bundle_cmd, stdout=subprocess.PIPE,
-                                                            stderr=subprocess.PIPE, shell=True)
-                    delete_bundle_output.wait()
+                    self._run_command(['/usr/bin/euca-delete-bundle', '-b', bucket,
+                                       '-p', prefix, '--region', self.region])
                     removed.append(image.id)
         return removed
 
     def _run_command(self, command):
-        pipe = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        pipe = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         pipe.wait()
         stdout = pipe.stdout.read()
         stderr = pipe.stderr.read()
@@ -153,9 +137,8 @@ class ServiceImageManager(EsiBase):
 
     def install(self, tarball, version=None):
         ### Decompress image
-        decompress_cmd = "/bin/tar vxJf {0}".format(tarball)
         print "Decompressing tarball: " + tarball
-        decompress_stdout, decompress_stderr = self._run_command(decompress_cmd)
+        decompress_stdout, decompress_stderr = self._run_command(['/bin/tar', 'vxJf', tarball])
         ### Bundle and upload image
         image_file = decompress_stdout.strip()
         print "Installing image from {0}".format(image_file)
@@ -164,19 +147,13 @@ class ServiceImageManager(EsiBase):
         bucket = self.IMAGE_NAME + '-' + version_string
         image_name = "{0}-v{1}".format(self.IMAGE_NAME, version_string)
         print "Bundling, uploading and registering image to bucket: " + bucket
-        install_cmd = "euca-install-image -b {0} -i {1} " \
-                      "-r x86_64 -n {2} " \
-                      "--virt hvm " \
-                      "--region {3} " \
-                      "-I {4} -S {5} " \
-                      "--user {6} --ec2cert {7}".format(
-                                            bucket, image_file,
-                                            image_name, self.region,
-                                            self.get_env_var('AWS_ACCESS_KEY_ID'),
-                                            self.get_env_var('AWS_SECRET_ACCESS_KEY'),
-                                            self.get_env_var('EC2_USER_ID'),
-                                            self.get_env_var('EUCALYPTUS_CERT'))
-        bundle_stdout, bundle_stderr = self._run_command(install_cmd)
+        bundle_stdout, bundle_stderr = \
+                    self._run_command(['euca-install-image',
+                                       '-b', bucket, '-i', image_file,
+                                       '-r',  'x86_64', '-n', image_name, '--virt', 'hvm',
+                                       '--region', self.region,
+                                       '--user', self.get_env_var('EC2_USER_ID'),
+                                       '--ec2cert', self.get_env_var('EUCALYPTUS_CERT')])
         # HACK: Popping the second to
         #       last line off of install (ie the IMAGE line)
         emi_id = bundle_stdout.split('\n')[-2].split().pop()
@@ -185,8 +162,7 @@ class ServiceImageManager(EsiBase):
                 'provides': ",".join(self.PROVIDED_SERVICES)}
         self._ec2.create_tags([emi_id], tags=tags)
         print "Registered image: " + emi_id
-        remove_tarball_cmd = "rm -f {0}".format(image_file)
-        self._run_command(remove_tarball_cmd)
+        self._run_command(['rm', '-f', image_file])
         for service in self.PROVIDED_SERVICES:
             self.enable(emi_id, service)
         return emi_id
