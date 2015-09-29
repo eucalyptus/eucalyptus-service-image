@@ -52,12 +52,15 @@ class EsiBase(object):
         accounts = {}
         process = subprocess.Popen(['/usr/bin/euare-accountlist', '-U', self.vars['AWS_IAM_URL']],
                                    stdout=subprocess.PIPE)
-        t = process.communicate()
-        if process.returncode == 0:
-            for account in t[0].split('\n'):
-                a = account.split('\t')
-                if len(a) == 2:
-                    accounts[a[0]] = a[1]
+        while process.poll() is None:
+            try:
+                line = process.stdout.readline()
+                if line:
+                    a = line.strip().split('\t')
+                    if len(a) == 2 and a[0].startswith('(eucalyptus)'):
+                        accounts[a[0]] = a[1]
+            except:
+                pass
         return accounts
 
     def _load_vars(self):
