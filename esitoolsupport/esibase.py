@@ -12,14 +12,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
-# Please contact Eucalyptus Systems, Inc., 6755 Hollister Ave., Goleta
+# Please contact Eucalyptus Systems, Inc., 6750 Navigator Way, Goleta
 # CA 93117, USA or visit http://www.eucalyptus.com/licenses/ if you need
 # additional information or have any questions.
-
-#
-# Order matters here. We want to make sure we initialize logging before anything
-# else happens. We need to initialize the logger that boto will be using.
-#
 
 import sys
 import subprocess
@@ -52,15 +47,10 @@ class EsiBase(object):
         accounts = {}
         process = subprocess.Popen(['/usr/bin/euare-accountlist', '-U', self.vars['AWS_IAM_URL']],
                                    stdout=subprocess.PIPE)
-        while process.poll() is None:
-            try:
-                line = process.stdout.readline()
-                if line:
-                    a = line.strip().split('\t')
-                    if len(a) == 2 and a[0].startswith('(eucalyptus)'):
-                        accounts[a[0]] = a[1]
-            except:
-                pass
+        for line in process.stdout:
+            split = line.strip().split(None, 1)
+            if len(split) > 1 and split[0].startswith('(eucalyptus)'):
+                accounts[split[0]] = split[1]
         return accounts
 
     def _load_vars(self):
