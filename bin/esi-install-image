@@ -1,62 +1,58 @@
 #!/usr/bin/env python
 #
-# Software License Agreement (BSD License)
+# Copyright 2009-2015 Eucalyptus Systems, Inc.
 #
-# Copyright (c) 2015, Eucalyptus Systems, Inc.
-# All rights reserved.
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 3 of the License.
 #
-# Redistribution and use of this software in source and binary forms, with or
-# without modification, are permitted provided that the following conditions
-# are met:
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-#   Redistributions of source code must retain the above
-#   copyright notice, this list of conditions and the
-#   following disclaimer.
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see http://www.gnu.org/licenses/.
 #
-#   Redistributions in binary form must reproduce the above
-#   copyright notice, this list of conditions and the
-#   following disclaimer in the documentation and/or other
-#   materials provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
+# Please contact Eucalyptus Systems, Inc., 6750 Navigator Way, Goleta
+# CA 93117, USA or visit http://www.eucalyptus.com/licenses/ if you need
+# additional information or have any questions.
 
 
 import argparse
 import copy
 import glob
-import logging
-import os
 import re
 import subprocess
 import sys
 import boto
 import rpm
-from esitoolsupport import check_environment, get_property, set_property
-from requestbuilder.exceptions import ServiceInitError
-
+from esitoolsupport.esibase import EsiBase
 
 DEFAULT_IMAGE_LOCATION = '/usr/share/eucalyptus/service-images/'
 
 
-class ServiceImageManager(object):
+class ImageInfo(object):
+    def __init__(self, id, location):
+        self.id = id
+        self.location = location
+
+    def __copy__(self):
+        return self
+
+    def __deepcopy__(self, memo):
+        return self
+
+
+class ServiceImageManager(EsiBase):
     IMAGE_NAME = 'eucalyptus-service-image'
     IMAGE_RE = re.compile('^eucalyptus-service-image')
     # HACK this info should be shared
     PROVIDED_SERVICES = ['imaging', 'loadbalancing', 'database']
 
-    def __init__(self):
-        check_environment()
-        self._ec2 = boto.connect_ec2_endpoint(os.environ.get("EC2_URL"))
+    def __init__(self, region):
+        super(self.__class__, self).__init__(region if region else 'localhost')
+        self._ec2 = boto.connect_ec2_endpoint(self.get_env_var('EC2_URL'))
         self._populate_images()
 
 
@@ -65,10 +61,10 @@ class ServiceImageManager(object):
         for image in self._ec2.get_all_images():
             name = image.name
             if self.IMAGE_RE.search(name):
-                version = self._get_image_version()
+                version = self._get_image_version(image)
                 if not version in self.images:
                     self.images[version] = []
-                self.images[version].append(image)
+                self.images[version].append(ImageInfo(image.id, image.location))
 
     def _split_location(self, location):
         matches = re.match(r'(.+)/(.+)\.manifest\.xml', location)
@@ -81,30 +77,22 @@ class ServiceImageManager(object):
             should_remove = True
             if not force:
                 for image in image_set:
-                    imageid = image.id
-                    if enabled_images.has_key(imageid):
+                    if image.id in enabled_images:
                         print >> sys.stderr, "Warning: skipping enabled image."
                         print >> sys.stderr, "Use '--force' to remove it anyway."
                         should_remove = False
 
             if should_remove:
                 for image in image_set:
-                    imageid = image.id
-                    deregister_cmd = "/usr/bin/euca-deregister {0}".format(imageid)
-                    deregister_output = subprocess.Popen(deregister_cmd, stdout=subprocess.PIPE,
-                                                            stderr=subprocess.PIPE, shell=True)
-                    deregister_output.wait()
-                    location = image.location
-                    (bucket, prefix) = self._split_location(location)
-                    delete_bundle_cmd = "/usr/bin/euca-delete-bundle -b {0}/{1}".format(bucket, prefix)
-                    delete_bundle_output = subprocess.Popen(delete_bundle_cmd, stdout=subprocess.PIPE,
-                                                            stderr=subprocess.PIPE, shell=True)
-                    delete_bundle_output.wait()
-                    removed.append(imageid)
+                    self._run_command(['/usr/bin/euca-deregister', image.id, '--region', self.region])
+                    (bucket, prefix) = self._split_location(image.location)
+                    self._run_command(['/usr/bin/euca-delete-bundle', '-b', bucket,
+                                       '-p', prefix, '--region', self.region])
+                    removed.append(image.id)
         return removed
 
     def _run_command(self, command):
-        pipe = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        pipe = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         pipe.wait()
         stdout = pipe.stdout.read()
         stderr = pipe.stderr.read()
@@ -123,7 +111,13 @@ class ServiceImageManager(object):
         del old_images[newest_key]
         return self._remove(old_images, force=force)
 
-    def _get_image_version(self):
+    def _get_image_version(self, image):
+        if 'version' in image.tags:
+            return image.tags['version']
+        else:
+            return None
+
+    def _get_package_version(self):
         ts = rpm.TransactionSet()
         matches = ts.dbMatch('name', self.IMAGE_NAME)
         for package in matches:
@@ -131,21 +125,23 @@ class ServiceImageManager(object):
 
     def install(self, tarball, version=None):
         ### Decompress image
-        decompress_cmd = "/bin/tar vxJf {0}".format(tarball)
         print "Decompressing tarball: " + tarball
-        decompress_stdout, decompress_stderr = self._run_command(decompress_cmd)
+        decompress_stdout, decompress_stderr = self._run_command(['/bin/tar', 'vxJf', tarball])
         ### Bundle and upload image
         image_file = decompress_stdout.strip()
         print "Installing image from {0}".format(image_file)
-        version_string = self._get_image_version() if version is None \
-            else "0.{0}".format(version)
+        version_string = self._get_package_version() if version is None \
+            else "{0}".format(version)
         bucket = self.IMAGE_NAME + '-' + version_string
         image_name = "{0}-v{1}".format(self.IMAGE_NAME, version_string)
         print "Bundling, uploading and registering image to bucket: " + bucket
-        install_cmd = "euca-install-image -b {0} -i {1} " \
-                      "-r x86_64 -n {2} --virt hvm".format(bucket, image_file,
-                                                           image_name)
-        bundle_stdout, bundle_stderr = self._run_command(install_cmd)
+        bundle_stdout, bundle_stderr = \
+                    self._run_command(['euca-install-image',
+                                       '-b', bucket, '-i', image_file,
+                                       '-r',  'x86_64', '-n', image_name, '--virt', 'hvm',
+                                       '--region', self.region,
+                                       '--user', self.get_env_var('EC2_USER_ID'),
+                                       '--ec2cert', self.get_env_var('EUCALYPTUS_CERT')])
         # HACK: Popping the second to
         #       last line off of install (ie the IMAGE line)
         emi_id = bundle_stdout.split('\n')[-2].split().pop()
@@ -154,40 +150,22 @@ class ServiceImageManager(object):
                 'provides': ",".join(self.PROVIDED_SERVICES)}
         self._ec2.create_tags([emi_id], tags=tags)
         print "Registered image: " + emi_id
-        remove_tarball_cmd = "rm -f {0}".format(image_file)
-        self._run_command(remove_tarball_cmd)
+        self._run_command(['rm', '-f', image_file])
         for service in self.PROVIDED_SERVICES:
             self.enable(emi_id, service)
         return emi_id
 
     def get_enabled(self):
-        enabled_images = {}
+        enabled_images = []
         for service in self.PROVIDED_SERVICES:
-            enabled_images[self.get_enabled_service_image(service)] = True
+            enabled_images.append(self.get_enabled_service_image(service))
         return enabled_images
 
     def get_enabled_service_image(self, service):
-        return get_property('services.{0}.worker.image'.format(service))
+        return self._get_property('services.{0}.worker.image'.format(service))
 
     def enable(self, imageid, service):
-        set_property('services.{0}.worker.image'.format(service), imageid)
-
-    @classmethod
-    def create(cls):
-        #
-        # Quiet the attempts to get logger for Walrus
-        #
-        class NullHandler(logging.Handler):
-            def emit(self, record):
-                pass
-        logging.getLogger("Walrus").addHandler(NullHandler())
-
-        try:
-            return cls()
-        except ServiceInitError as err:
-            print >> sys.stderr, str(err)
-            sys.exit(1)
-
+        self._set_property('services.{0}.worker.image'.format(service), imageid)
 
 if __name__ == "__main__":
     description = '''
@@ -204,13 +182,8 @@ if __name__ == "__main__":
     the Service has been installed (packaged).
     '''
 
-    epilog = '''
-    NOTE: In order to use this you MUST have cloud administrator
-    credentials sourced in your environment (i.e., run the command
-    '. /my/cred/path/eucarc').'''
-
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     description=description, epilog=epilog)
+                                     description=description)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-t', '--tarball', metavar='TARBALL', help=argparse.SUPPRESS)
     group.add_argument('--install-default', action='store_true',
@@ -230,11 +203,12 @@ if __name__ == "__main__":
                         an operation. This will force removal of
                         enabled Service images.''')
     parser.add_argument('--force-version', help=argparse.SUPPRESS)
-
+    parser.add_argument('--region', metavar='REGION', help=('region '
+                    'name to search when looking up config file data'))
 
 
     args = parser.parse_args()
-    ism = ServiceImageManager.create()
+    ism = ServiceImageManager(args.region)
 
     if args.tarball:
         ism.install(args.tarball, args.force_version)
