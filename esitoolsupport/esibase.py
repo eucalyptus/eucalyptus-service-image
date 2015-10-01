@@ -49,7 +49,8 @@ class EsiBase(object):
                                    stdout=subprocess.PIPE)
         for line in process.stdout:
             split = line.strip().split(None, 1)
-            if len(split) > 1 and split[0].startswith('(eucalyptus)'):
+            if len(split) > 1 and (split[0].startswith('(eucalyptus)')
+                                   or split[0].startswith('eucalyptus')):
                 accounts[split[0]] = split[1]
         return accounts
 
@@ -63,6 +64,12 @@ class EsiBase(object):
                 v = var.split("=")
                 if len(v) == 2:
                     self.vars[v[0]] = v[1] if v[1] != '' else None
+        # assume eucalyptus account since this is a system tool
+        if self.get_env_var('EC2_USER_ID') is None:
+            self.vars['EC2_USER_ID'] = self.list_system_accounts()['eucalyptus']
+        # if EUCA_PROPERTIES_URL is not set let's assume that the command is invoked on CLC
+        if self.get_env_var('EUCA_PROPERTIES_URL') is None:
+            self.vars['EUCA_PROPERTIES_URL'] = 'http://127.0.0.1:8773/services/Properties/'
 
     @staticmethod
     def _check_binary(binary):
@@ -74,11 +81,6 @@ class EsiBase(object):
             print >> sys.stderr, "Make sure EUCALYPTUS path variable is exported."
             sys.exit(1)
 
-    # if EUCA_PROPERTIES_URL is not set let's assume that the command is invoked on CLC
-    def _get_properties_url(self):
-        return self.vars['EUCA_PROPERTIES_URL'] if self.vars['EUCA_PROPERTIES_URL'] \
-            else 'http://127.0.0.1:8773/services/Properties/'
-
     def check_environment(self):
         if self.vars["EC2_URL"] is None or \
                         self.vars["AWS_ACCESS_KEY_ID"] is None or \
@@ -88,7 +90,7 @@ class EsiBase(object):
             sys.exit(1)
 
     def _set_property(self, property, value):
-        cmd = ['/usr/bin/euctl', '-U', self._get_properties_url(),
+        cmd = ['/usr/bin/euctl', '-U', self.vars['EUCA_PROPERTIES_URL'],
                "{0}={1}".format(property, value)]
         try:
             subprocess.check_call(cmd)
@@ -100,7 +102,7 @@ class EsiBase(object):
 
     def _get_property(self, property):
         try:
-            cmd = ['/usr/bin/euctl', '-U', self._get_properties_url(), property]
+            cmd = ['/usr/bin/euctl', '-U', self.vars['EUCA_PROPERTIES_URL'], property]
             out = subprocess.Popen(cmd, env=os.environ.copy(), stdout=subprocess.PIPE).communicate()[0]
             value = out.split()[-1]
             return value if value else None
@@ -108,5 +110,5 @@ class EsiBase(object):
             print >> sys.stderr, "Error: failed to get property {0}.".format(property)
             sys.exit(1)
 
-    def get_env_var(self, service):
-        return self.vars[service] if service in self.vars else None
+    def get_env_var(self, var):
+        return self.vars[var] if var in self.vars else None
