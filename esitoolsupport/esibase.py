@@ -104,8 +104,8 @@ class EsiBase(object):
         try:
             cmd = ['/usr/bin/euctl', '-U', self.vars['EUCA_PROPERTIES_URL'], property]
             out = subprocess.Popen(cmd, env=os.environ.copy(), stdout=subprocess.PIPE).communicate()[0]
-            value = out.split()[-1]
-            return value if value else None
+            res = out.split()
+            return res[2] if len(res) == 3 else None
         except OSError:
             print >> sys.stderr, "Error: failed to get property {0}.".format(property)
             sys.exit(1)

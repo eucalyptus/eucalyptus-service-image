@@ -27,6 +27,9 @@ from esitoolsupport.esibase import EsiBase
 
 
 class StackManager(EsiBase):
+    SETTING_PER_STACK = {'imaging': ['image'],
+                         'database': ['volume', 'image']}
+
     def __init__(self, region):
         super(self.__class__, self).__init__(region if region else 'localhost')
 
@@ -34,9 +37,20 @@ class StackManager(EsiBase):
         service_property = 'services.{0}.worker.configured'.format(stack)
         self._set_property(service_property, 'true' if value else 'false')
 
+    def check_settings(self, stack):
+        for v in StackManager.SETTING_PER_STACK[stack]:
+            val = self._get_property('services.{0}.worker.{1}'.format(stack, v))
+            if val == 'NULL' or val == '' or val is None:
+                print "You need to set 'services.{0}.worker.{1}' before enabling service".format(stack, v)
+                exit(1)
+
     def enable(self, stack):
+        self.check_settings(stack)
         state = self._get_stack_status(stack, False)
         if state["status"] == 'NOT_FOUND':
+            if 'true' == self._get_property('services.{0}.worker.configured'.format(stack)):
+                # looks like stack was removed manually and property needs to be set to false first
+                self.set_property(False, stack)
             self.set_property(True, stack)
         elif state["status"] == 'CREATE_COMPLETE':
             print "Stack '{0}' is already created.".format(state["name"])
@@ -47,11 +61,21 @@ class StackManager(EsiBase):
     def disable(self, stack):
         state = self._get_stack_status(stack)
         if state["status"] == 'CREATE_COMPLETE':
+            if 'false' == self._get_property('services.{0}.worker.configured'.format(stack)):
+                # looks like a stack was created manually so the problem should be resolved manually
+                print "Detected stack {0} in the {1} service account, at the same time " \
+                      "'services.{2}.worker.configured' property is set to 'false'. That is not a valid state." \
+                      "Please resolve this conflict".format(state["name"], stack, stack)
             self.set_property(False, stack)
         elif state["status"] == 'DELETE_IN_PROGRESS':
             print "Stack '{0}' is already in {1} state.".format(state["name"], state["status"])
+        elif state["status"] == 'CREATE_IN_PROGRESS':
+            print "Stack '{0}' is in {1} state. Please wait for stack creation before " \
+                  "attempting to delete it".format(state["name"], state["status"])
+        elif state["status"] == 'NOT_FOUND':
+            print "There are no stack to delete"
         else:
-            print "There are no '{0}' stack to delete".format(state["name"])
+            print "Stack '{0}' is in {1} state.".format(state["name"], state["status"])
 
     def _get_euform_conn(self, stack):
         if self.get_env_var("TOKEN_URL") is None or self.get_env_var("AWS_CLOUDFORMATION_URL") is None:
@@ -100,8 +124,9 @@ class StackManager(EsiBase):
             stack_res = self._get_euform_conn(stack).describe_stack_resources(state["name"])
             for r in stack_res:
                 if r.resource_status == 'DELETE_FAILED':
-                    print "Please manually delete {0} with id {1} to unblock stack delete process".format(
-                        r.logical_resource_id, r.physical_resource_id)
+                    print "Please manually delete {0} with id {1}. That might unblock stack delete process." \
+                          "You could also try delete stack {2}".format(
+                        r.logical_resource_id, r.physical_resource_id, state["name"])
         elif stack_status == 'NOT_FOUND':
             print "Can not detect stack status for {0} service".format(stack)
         elif stack_status == 'CREATE_FAILED':
