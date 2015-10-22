@@ -24,7 +24,7 @@ AC_ARG_WITH(eucalyptus-mirror,
     [EUCALYPTUS_MIRROR="${withval}"])
 AC_ARG_WITH(euca2ools-mirror,
     [  --with-euca2ools-mirror=<dir>   the location of the euca2ools mirror],
-    [EUCA2OOLS="${withval}"])
+    [EUCA2OOLS_MIRROR="${withval}"])
 
 AC_PATH_PROG(PYTHON, python)
 AC_PATH_PROG(VIRSH, virsh)
