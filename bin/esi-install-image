@@ -17,8 +17,7 @@
 # Please contact Eucalyptus Systems, Inc., 6750 Navigator Way, Goleta
 # CA 93117, USA or visit http://www.eucalyptus.com/licenses/ if you need
 # additional information or have any questions.
-
-
+import os
 import argparse
 import copy
 import glob
@@ -26,6 +25,7 @@ import re
 import subprocess
 import sys
 import boto
+import fcntl
 import rpm
 from esitoolsupport.esibase import EsiBase
 
@@ -50,10 +50,11 @@ class ServiceImageManager(EsiBase):
     # HACK this info should be shared
     PROVIDED_SERVICES = ['imaging', 'loadbalancing', 'database']
 
-    def __init__(self, region):
+    def __init__(self, region, debug=False):
         super(self.__class__, self).__init__(region if region else 'localhost')
         self._ec2 = boto.connect_ec2_endpoint(self.get_env_var('EC2_URL'))
         self._populate_images()
+        self._debug = debug
 
 
     def _populate_images(self):
@@ -84,19 +85,31 @@ class ServiceImageManager(EsiBase):
 
             if should_remove:
                 for image in image_set:
-                    self._run_command(['/usr/bin/euca-deregister', image.id, '--region', self.region])
+                    self._run_command(['/usr/bin/euca-deregister', image.id, '--region', self.region], self._debug)
                     (bucket, prefix) = self._split_location(image.location)
                     self._run_command(['/usr/bin/euca-delete-bundle', '-b', bucket,
-                                       '-p', prefix, '--region', self.region])
+                                       '-p', prefix, '--region', self.region], self._debug)
                     removed.append(image.id)
         return removed
 
-    def _run_command(self, command):
-        pipe = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        pipe.wait()
-        stdout = pipe.stdout.read()
-        stderr = pipe.stderr.read()
-        if pipe.returncode > 0:
+    def _run_command(self, command, debug=False):
+        if debug:
+            command.append('--debug')
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if debug:
+                fd = process.stderr
+                fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+                fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+        while process.poll() is None:
+            if debug:
+                try:
+                    line = process.stderr.readline()
+                    print line.strip()
+                except:
+                    pass
+        stderr = process.stderr.read() if not debug else "SEE OUTPUT ABOVE"
+        stdout = process.stdout.read()
+        if process.returncode > 0:
             print "Error: Unable to install imaging worker due to:\n" \
                   + stdout + stderr
             sys.exit(1)
@@ -141,7 +154,7 @@ class ServiceImageManager(EsiBase):
                                '-r', 'x86_64', '-n', image_name, '--virt', 'hvm',
                                '--region', self.region,
                                '--user', self.get_env_var('EC2_USER_ID'),
-                               '--ec2cert', self.get_env_var('EUCALYPTUS_CERT')])
+                               '--ec2cert', self.get_env_var('EUCALYPTUS_CERT')], self._debug)
         # HACK: Popping the second to
         #       last line off of install (ie the IMAGE line)
         emi_id = bundle_stdout.split('\n')[-2].split().pop()
@@ -203,12 +216,13 @@ if __name__ == "__main__":
     parser.add_argument('--force', action='store_true', help='''Force
                         an operation. This will force removal of
                         enabled Service images.''')
+    parser.add_argument('--debug', help='Show debugging output', action='store_true')
     parser.add_argument('--force-version', help=argparse.SUPPRESS)
     parser.add_argument('--region', metavar='REGION', help=('region '
                                                             'name to search when looking up config file data'))
 
     args = parser.parse_args()
-    ism = ServiceImageManager(args.region)
+    ism = ServiceImageManager(args.region, args.debug)
 
     if args.tarball:
         ism.install(args.tarball, args.force_version)
