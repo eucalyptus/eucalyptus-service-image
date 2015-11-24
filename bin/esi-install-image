@@ -130,27 +130,30 @@ class ServiceImageManager(EsiBase):
         else:
             return None
 
-    def _get_package_version(self):
+    def get_package_version(self):
         ts = rpm.TransactionSet()
         matches = ts.dbMatch('name', self.IMAGE_NAME)
         for package in matches:
             return package['version']
 
-    def install(self, tarball, version=None):
+    def check_image_name(self, image_name):
+        print "Checking if image '{0}' is already installed...".format(image_name)
+        filters = {'name': image_name}
+        if len(self._ec2.get_all_images(filters=filters)) != 0:
+            print >> sys.stderr, "Error: Image {0} is already registered.".format(image_name)
+            sys.exit(1)
+
+    def install(self, tarball, image_name, version):
         ### Decompress image
         print "Decompressing tarball: " + tarball
         decompress_stdout, decompress_stderr = self._run_command(['/bin/tar', 'vxJf', tarball])
         ### Bundle and upload image
         image_file = decompress_stdout.strip()
         print "Installing image from {0}".format(image_file)
-        version_string = self._get_package_version() if version is None \
-            else "{0}".format(version)
-        bucket = self.IMAGE_NAME + '-' + version_string
-        image_name = "{0}-v{1}".format(self.IMAGE_NAME, version_string)
-        print "Bundling, uploading and registering image to bucket: " + bucket
+        print "Bundling, uploading and registering image to bucket: " + image_name
         bundle_stdout, bundle_stderr = \
             self._run_command(['euca-install-image',
-                               '-b', bucket, '-i', image_file,
+                               '-b', image_name, '-i', image_file,
                                '-r', 'x86_64', '-n', image_name, '--virt', 'hvm',
                                '--region', self.region,
                                '--user', self.get_env_var('EC2_USER_ID'),
@@ -159,7 +162,7 @@ class ServiceImageManager(EsiBase):
         #       last line off of install (ie the IMAGE line)
         emi_id = bundle_stdout.split('\n')[-2].split().pop()
         tags = {'type': self.IMAGE_NAME,
-                'version': version_string,
+                'version': version,
                 'provides': ",".join(self.PROVIDED_SERVICES)}
         self._ec2.create_tags([emi_id], tags=tags)
         print "Registered image: " + emi_id
@@ -224,14 +227,19 @@ if __name__ == "__main__":
     args = parser.parse_args()
     ism = ServiceImageManager(args.region, args.debug)
 
+    print 'Installing Service Image...'
     if args.tarball:
-        ism.install(args.tarball, args.force_version)
+        image_name = "{0}-v{1}".format(ServiceImageManager.IMAGE_NAME, args.force_version)
+        ism.check_image_name(image_name)
+        ism.install(args.tarball, image_name, args.force_version)
     elif args.install_default:
-        print 'Installing Service Image...'
+        version = ism.get_package_version()
+        image_name = "{0}-v{1}".format(ServiceImageManager.IMAGE_NAME, version)
+        ism.check_image_name(image_name)
         try:
             tarball = glob.glob('{0}/*.tar.xz'.format(DEFAULT_IMAGE_LOCATION))[0]
             print 'Found tarball {0}'.format(tarball)
-            ism.install(tarball)
+            ism.install(tarball, image_name, version)
         except IndexError:
             print >> sys.stderr, "Error: failed to find a Service tarball."
             print >> sys.stderr, "Try supplying one on the command line with '-t'."
