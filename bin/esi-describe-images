@@ -17,8 +17,7 @@
 # Please contact Eucalyptus Systems, Inc., 6750 Navigator Way, Goleta
 # CA 93117, USA or visit http://www.eucalyptus.com/licenses/ if you need
 # additional information or have any questions.
-
-
+import os
 import argparse
 import re
 import boto
@@ -120,5 +119,5 @@ if __name__ == "__main__":
                                                             'name to search when looking up config file data'))
     args = parser.parse_args()
 
-    ism = ServiceImageManager(args.region)
+    ism = ServiceImageManager(args.region if args.region is not None else os.getenv("AWS_DEFAULT_REGION"))
     ism.list(show_instances=args.show_instances)
