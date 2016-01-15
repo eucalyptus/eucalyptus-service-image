@@ -95,6 +95,7 @@ class ServiceImageManager(EsiBase):
     def _run_command(self, command, debug=False):
         if debug:
             command.append('--debug')
+            print "Running: {0}".format(" ".join(command))
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if debug:
                 fd = process.stderr
