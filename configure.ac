@@ -4,8 +4,8 @@ INSTALL_TREE=http://linux.mirrors.es.net/centos/7/os/x86_64/
 BASE_MIRROR=${INSTALL_TREE}
 UPDATES_MIRROR=http://linux.mirrors.es.net/centos/7/updates/x86_64/
 EPEL_MIRROR=http://linux.mirrors.es.net/epel/7/x86_64/
-EUCALYPTUS_MIRROR=http://packages.release.eucalyptus-systems.com/yum/tags/eucalyptus-devel/rhel/7/x86_64/
-EUCA2OOLS_MIRROR=http://downloads.eucalyptus.com/software/euca2ools/3.3/rhel/6/x86_64/
+EUCALYPTUS_MIRROR=http://downloads.eucalyptus.com/software/eucalyptus/4.3/rhel/7/x86_64/
+EUCA2OOLS_MIRROR=http://downloads.eucalyptus.com/software/euca2ools/3.3/rhel/7/x86_64/
 
 AC_ARG_WITH(install-tree,
     [  --with-install-tree=<dir>       the location of the install tree],
