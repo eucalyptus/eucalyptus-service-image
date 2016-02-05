@@ -30,7 +30,7 @@ chkconfig
 coreutils
 curl
 e2fsprogs
-grub
+grub2
 kernel-xen
 openssh-server
 passwd
@@ -156,7 +156,7 @@ baseurl=@EUCA2OOLS_MIRROR@
 enabled=1
 EOF
 
-yumdownloader --resolve -c /tmp/yum-tmp.conf --destdir /var/lib/eucalyptus-service-image/packages eucalyptus-imaging-worker load-balancer-servo eucalyptus-database-server euca2ools
+yumdownloader --resolve -c /tmp/yum-tmp.conf --destdir /var/lib/eucalyptus-service-image/packages eucalyptus-imaging-worker load-balancer-servo euca2ools
 createrepo /var/lib/eucalyptus-service-image/packages
 rm /tmp/yum-tmp.conf
 %end
