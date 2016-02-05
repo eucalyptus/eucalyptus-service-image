@@ -23,7 +23,6 @@ Obsoletes:      eucalyptus-imaging-worker-image < 1.1
 Obsoletes:      eucalyptus-load-balancer-image < 1.2
 Provides:       eucalyptus-imaging-worker-image
 Provides:       eucalyptus-load-balancer-image
-Provides:       eucalyptus-database-server-image = %{version}-%{release}
 
 
 %description
@@ -57,6 +56,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Feb  5 2016 Eucalyptus Release Engineering <support@eucalyptus.com>
+- build Centos 7 image; sunset database server
+
 * Mon Sep 28 2015 Eucalyptus Release Engineering <support@eucalyptus.com>
 - Pulled in euca2ools 3.3 for euca-generate-environment-config
 
