@@ -30,8 +30,6 @@ chkconfig
 coreutils
 curl
 e2fsprogs
-grub2
-kernel-xen
 openssh-server
 passwd
 policycoreutils
