@@ -14,10 +14,12 @@ Source0:        %{name}-%{version}.tar.xz
 BuildRequires:  /usr/bin/virt-install
 BuildRequires:  /usr/bin/virt-sparsify
 BuildRequires:  /usr/bin/virt-sysprep
+BuildRequires:  python >= 2.7
 
 Requires:       euca2ools >= 3.3
 Requires:       eucalyptus-admin-tools >= 4.2
 Requires:       python-prettytable
+Requires:       python >= 2.7
 
 Obsoletes:      eucalyptus-imaging-worker-image < 1.1
 Obsoletes:      eucalyptus-load-balancer-image < 1.2
