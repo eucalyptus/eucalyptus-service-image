@@ -32,6 +32,19 @@ AC_PATH_PROG(VIRT_INSTALL, virt-install)
 AC_PATH_PROG(VIRT_SYSPREP, virt-sysprep)
 AC_PATH_PROG(VIRT_SPARSIFY, virt-sparsify)
 
+AC_CHECK_PROG(VIRT_SYSPREP_CHECK,virt-sysprep,yes)
+if test x"$VIRT_SYSPREP_CHECK" != x"yes" ; then
+    AC_MSG_ERROR([Please install virt-sysprep before continuing.])
+fi
+AC_CHECK_PROG(VIRT_SPARSIFY_CHECK,virt-sparsify,yes)
+if test x"$VIRT_SPARSIFY_CHECK" != x"yes" ; then
+    AC_MSG_ERROR([Please install virt-sparsify before continuing.])
+fi
+AC_CHECK_PROG(VIRT_INSTALL_CHECK,virt-install,yes)
+if test x"$VIRT_INSTALL_CHECK" != x"yes" ; then
+    AC_MSG_ERROR([Please install virt-install before continuing.])
+fi
+
 AC_CONFIG_FILES([
     Makefile
     eucalyptus-service-image.ks
