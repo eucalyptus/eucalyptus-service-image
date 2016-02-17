@@ -14,12 +14,11 @@ Source0:        %{name}-%{version}.tar.xz
 BuildRequires:  /usr/bin/virt-install
 BuildRequires:  /usr/bin/virt-sparsify
 BuildRequires:  /usr/bin/virt-sysprep
-BuildRequires:  python >= 2.7
+BuildRequires:  python-devel
 
 Requires:       euca2ools >= 3.3
 Requires:       eucalyptus-admin-tools >= 4.2
 Requires:       python-prettytable
-Requires:       python >= 2.7
 
 Obsoletes:      eucalyptus-imaging-worker-image < 1.1
 Obsoletes:      eucalyptus-load-balancer-image < 1.2
@@ -58,6 +57,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Feb 17 2016 Eucalyptus Release Engineering <support@eucalyptus.com>
+- remove python 2.7 requirement
+
 * Fri Feb  5 2016 Eucalyptus Release Engineering <support@eucalyptus.com>
 - build Centos 7 image; sunset database server
 
