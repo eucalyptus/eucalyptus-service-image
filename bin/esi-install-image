@@ -145,6 +145,14 @@ class ServiceImageManager(EsiBase):
             sys.exit(1)
 
     def install(self, tarball, image_name, version):
+        print "Checking env variables"
+        if self.get_env_var('EC2_USER_ID') is None:
+            print "Please make sure that you have your env configured: EC2_USER_ID is not set"
+            sys.exit(1)
+        if self.get_env_var('EUCALYPTUS_CERT') is None and self.get_env_var('EUCA_BOOTSTRAP_URL') is None:
+            print "Please make sure that you have your env configured: EUCALYPTUS_CERT or EUCA_BOOTSTRAP_URL" \
+                  " are not set. Please configure at least one of them"
+            sys.exit(1)
         ### Decompress image
         print "Decompressing tarball: " + tarball
         decompress_stdout, decompress_stderr = self._run_command(['/bin/tar', 'vxJf', tarball])
@@ -152,13 +160,15 @@ class ServiceImageManager(EsiBase):
         image_file = decompress_stdout.strip()
         print "Installing image from {0}".format(image_file)
         print "Bundling, uploading and registering image to bucket: " + image_name
-        bundle_stdout, bundle_stderr = \
-            self._run_command(['euca-install-image',
-                               '-b', image_name, '-i', image_file,
-                               '-r', 'x86_64', '-n', image_name, '--virt', 'hvm',
-                               '--region', self.region,
-                               '--user', self.get_env_var('EC2_USER_ID'),
-                               '--ec2cert', self.get_env_var('EUCALYPTUS_CERT')], self._debug)
+        cmd = ['euca-install-image',
+               '-b', image_name, '-i', image_file,
+               '-r', 'x86_64', '-n', image_name, '--virt', 'hvm',
+               '--region', self.region,
+               '--user', self.get_env_var('EC2_USER_ID')]
+        if self.get_env_var('EUCA_BOOTSTRAP_URL') is None:
+            cmd.append('--ec2cert')
+            cmd.append(self.get_env_var('EUCALYPTUS_CERT'))
+        bundle_stdout, bundle_stderr = self._run_command(cmd, self._debug)
         # HACK: Popping the second to
         #       last line off of install (ie the IMAGE line)
         emi_id = bundle_stdout.split('\n')[-2].split().pop()
@@ -229,7 +239,6 @@ if __name__ == "__main__":
     ism = ServiceImageManager(args.region if args.region is not None else os.getenv("AWS_DEFAULT_REGION"),
                               args.debug)
 
-    print 'Installing Service Image...'
     if args.tarball:
         image_name = "{0}-v{1}".format(ServiceImageManager.IMAGE_NAME, args.force_version)
         ism.check_image_name(image_name)
