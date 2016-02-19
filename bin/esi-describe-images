@@ -24,12 +24,12 @@ import boto
 import rpm
 from prettytable import PrettyTable
 from esitoolsupport.esibase import EsiBase
+from esitoolsupport import PROVIDED_SERVICES
 
 
 class ServiceImageManager(EsiBase):
     IMAGE_NAME = 'eucalyptus-service-image'
     IMAGE_RE = re.compile('^eucalyptus-service-image')
-    PROVIDED_SERVICES = ['imaging', 'loadbalancing', 'database']
 
     def __init__(self, region):
         super(self.__class__, self).__init__(region if region else 'localhost')
@@ -51,7 +51,7 @@ class ServiceImageManager(EsiBase):
     def list(self, show_instances=False):
         table = PrettyTable(['SERVICE', 'VERSION', 'ACTIVE', 'IMAGE', 'INSTANCES'],
                             border=False)
-        for service in self.PROVIDED_SERVICES:
+        for service in PROVIDED_SERVICES:
             for image in self._get_images():
                 service_instances = self._get_service_instances(service, image.id)
                 if image.id == self._get_property('services.{0}.worker.image'.format(service)):

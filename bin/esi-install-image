@@ -28,6 +28,7 @@ import boto
 import fcntl
 import rpm
 from esitoolsupport.esibase import EsiBase
+from esitoolsupport import PROVIDED_SERVICES
 
 DEFAULT_IMAGE_LOCATION = '/usr/share/eucalyptus/service-images/'
 
@@ -47,8 +48,6 @@ class ImageInfo(object):
 class ServiceImageManager(EsiBase):
     IMAGE_NAME = 'eucalyptus-service-image'
     IMAGE_RE = re.compile('^eucalyptus-service-image')
-    # HACK this info should be shared
-    PROVIDED_SERVICES = ['imaging', 'loadbalancing', 'database']
 
     def __init__(self, region, debug=False):
         super(self.__class__, self).__init__(region if region else 'localhost')
@@ -174,17 +173,17 @@ class ServiceImageManager(EsiBase):
         emi_id = bundle_stdout.split('\n')[-2].split().pop()
         tags = {'type': self.IMAGE_NAME,
                 'version': version,
-                'provides': ",".join(self.PROVIDED_SERVICES)}
+                'provides': ",".join(PROVIDED_SERVICES)}
         self._ec2.create_tags([emi_id], tags=tags)
         print "Registered image: " + emi_id
         self._run_command(['rm', '-f', image_file])
-        for service in self.PROVIDED_SERVICES:
+        for service in PROVIDED_SERVICES:
             self.enable(emi_id, service)
         return emi_id
 
     def get_enabled(self):
         enabled_images = []
-        for service in self.PROVIDED_SERVICES:
+        for service in PROVIDED_SERVICES:
             enabled_images.append(self.get_enabled_service_image(service))
         return enabled_images
 
