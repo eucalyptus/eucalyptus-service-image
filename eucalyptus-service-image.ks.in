@@ -93,14 +93,14 @@ instance /dev/ttyS0
 exec /sbin/mingetty /dev/ttyS0
 EOF
 
-sed -i 's/rhgb quiet//' /boot/grub/grub.conf
-sed -i 's/hiddenmenu//' /boot/grub/grub.conf
-sed -i 's/splashimage.*//' /boot/grub/grub.conf
-
 # Configure sudo
 sed -i '/requiretty/s/^/#/' /etc/sudoers
 sed -i '/!visiblepw/s/^/#/' /etc/sudoers
 echo "cloud-user ALL = NOPASSWD: ALL" >> /etc/sudoers
+
+# Configure cloud-init
+sed -i 's/name: fedora/name: cloud-user/' /etc/cloud/cloud.cfg
+sed -i 's/gecos: Fedora Cloud User/gecos: Cloud User/' /etc/cloud/cloud.cfg
 
 # Configure networking
 echo "NOZEROCONF=yes" >> /etc/sysconfig/network
