@@ -4,7 +4,7 @@ reboot
 keyboard us
 lang en_US.UTF-8
 timezone UTC
-network --bootproto=dhcp --device=eth0 --onboot=on
+network --bootproto=dhcp --device=eth0 --onboot yes
 rootpw --iscrypted $1$HEVobWzu$6d5IWr.r7Df15XHLFCggW/
 auth --useshadow --passalgo=sha512
 firewall --disabled
@@ -104,6 +104,7 @@ sed -i 's/gecos: Fedora Cloud User/gecos: Cloud User/' /etc/cloud/cloud.cfg
 
 # Configure networking
 echo "NOZEROCONF=yes" >> /etc/sysconfig/network
+echo "NETWORKING=yes" >> /etc/sysconfig/network
 
 # Lock root login
 # future versions of anaconda have ``rootpw --lock''
