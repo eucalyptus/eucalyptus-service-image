@@ -4,25 +4,26 @@ reboot
 keyboard us
 lang en_US.UTF-8
 timezone UTC
-network --bootproto=dhcp --device=eth0 --onboot yes
+network --bootproto dhcp --device eth0 --onboot on
 rootpw --iscrypted $1$HEVobWzu$6d5IWr.r7Df15XHLFCggW/
 auth --useshadow --passalgo=sha512
 firewall --disabled
 selinux --disabled
 services --enabled=network,ntpd,ntpdate
 skipx
+eula --agreed
 bootloader --timeout=1 --append="xen_blkfront.sda_is_xvda=1 serial=tty0 console=ttyS0,115200n8"
 clearpart --all
 zerombr
 part / --size 1536 --grow --fstype ext3
 
-url --url=@INSTALL_TREE@
+url --url @INSTALL_TREE@
 repo --name updates --baseurl=@UPDATES_MIRROR@
 repo --name epel --baseurl=@EPEL_MIRROR@
 repo --name eucalyptus --baseurl=@EUCALYPTUS_MIRROR@
 
 # Add all the packages after the base packages
-%packages --nobase --excludedocs --instLangs=en
+%packages --excludedocs --instLangs=en
 @core
 audit
 bash
@@ -105,10 +106,6 @@ sed -i 's/gecos: Fedora Cloud User/gecos: Cloud User/' /etc/cloud/cloud.cfg
 # Configure networking
 echo "NOZEROCONF=yes" >> /etc/sysconfig/network
 echo "NETWORKING=yes" >> /etc/sysconfig/network
-
-# Lock root login
-# future versions of anaconda have ``rootpw --lock''
-passwd -l root
 
 # Configure sshd
 sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
