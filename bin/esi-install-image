@@ -157,6 +157,23 @@ class ServiceImageManager(EsiBase):
         decompress_stdout, decompress_stderr = self._run_command(['/bin/tar', 'vxJf', tarball])
         ### Bundle and upload image
         image_file = decompress_stdout.strip()
+        ### Verify the image is raw vs. qcow2
+        try:
+            cmd = ['/usr/bin/file', image_file]
+            qemu_stdout, qemu_stderr = self._run_command(cmd, self._debug)
+            search_qcow = re.search(r'qcow image', qemu_stdout, re.I)
+            if search_qcow:
+                print "The image is formatted as QCOW, converting to raw"
+                try:
+                    cmd = ['/usr/bin/qemu-img', 'convert', '-O', 'raw', image_file,
+                           image_file + '.tmp']
+                    convert_stdout, convert_stderr = self._run_command(cmd, self._debug)
+                    os.rename(image_file + '.tmp', image_file)
+                except Exception:
+                    print "Error: got exception converting image"
+                    exit(1)
+        except:
+            pass
         print "Installing image from {0}".format(image_file)
         print "Bundling, uploading and registering image to bucket: " + image_name
         cmd = ['euca-install-image',
