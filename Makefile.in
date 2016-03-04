@@ -29,7 +29,7 @@ build/image/eucalyptus-service-image.raw: eucalyptus-service-image.ks
 		--initrd-inject $< \
 		--extra-args ks="file:/$< console=tty0 console=ttyS0,115200 serial" \
 		--location @INSTALL_TREE@ \
-		--disk $@,size=$(DISK) \
+		--disk $@,format=raw,size=$(DISK) \
 		--vcpus $(CPUS) --ram $(MEMORY) \
 		--graphics none \
 		--hvm --accelerate --noreboot \
