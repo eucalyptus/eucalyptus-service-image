@@ -18,6 +18,7 @@ BuildRequires:  /usr/bin/virt-sysprep
 Requires:       euca2ools >= 3.3
 Requires:       eucalyptus-admin-tools >= 4.2
 Requires:       python-prettytable
+Requires:       xz
 
 Obsoletes:      eucalyptus-imaging-worker-image < 1.1
 Obsoletes:      eucalyptus-load-balancer-image < 1.2
@@ -57,6 +58,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Apr 21 2016 Garrett Holmstrom <gholms@hpe.com>
+- Added xz dependency (EUCA-12236)
+
 * Mon Sep 28 2015 Eucalyptus Release Engineering <support@eucalyptus.com>
 - Pulled in euca2ools 3.3 for euca-generate-environment-config
 
