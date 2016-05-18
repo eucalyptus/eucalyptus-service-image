@@ -64,6 +64,7 @@ class EsiBase(object):
                 v = var.split("=")
                 if len(v) == 2:
                     self.vars[v[0]] = v[1] if v[1] != '' else None
+        self.check_environment()
         # assume eucalyptus account since this is a system tool
         if self.get_env_var('EC2_USER_ID') is None:
             self.vars['EC2_USER_ID'] = self.list_system_accounts()['eucalyptus']
@@ -84,8 +85,10 @@ class EsiBase(object):
     def check_environment(self):
         if self.vars["EC2_URL"] is None or \
                         self.vars["AWS_ACCESS_KEY_ID"] is None or \
-                        self.vars["AWS_SECRET_ACCESS_KEY"] is None:
-            print >> sys.stderr, "Error: Unable to find EC2_URL, AWS_ACCESS_KEY_ID, or AWS_SECRET_ACCESS_KEY"
+                        self.vars["AWS_SECRET_ACCESS_KEY"] is None or \
+                        self.vars["AWS_IAM_URL"] is None:
+            print >> sys.stderr, "Error: Unable to find EC2_URL, AWS_IAM_URL, " \
+                                 "AWS_ACCESS_KEY_ID, or AWS_SECRET_ACCESS_KEY"
             print >> sys.stderr, "Make sure your environment is properly configured."
             sys.exit(1)
 
