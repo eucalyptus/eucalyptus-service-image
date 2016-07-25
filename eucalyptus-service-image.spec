@@ -1,5 +1,5 @@
 Name:           eucalyptus-service-image
-Version:        1
+Version:        2
 Release:        0%{?dist}
 Summary:        Eucalyptus Service Image
 
@@ -57,6 +57,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Jul 25 2016 Garrett Holmstrom <gholms@hpe.com> - 2
+- Version bump (2)
+
 * Wed Feb 17 2016 Eucalyptus Release Engineering <support@eucalyptus.com>
 - remove python 2.7 requirement
 

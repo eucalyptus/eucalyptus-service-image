@@ -27,15 +27,8 @@ from distutils.core import setup
 import glob
 
 
-def get_version():
-    try:
-        return open('VERSION').read().rstrip()
-    except IOError:
-        return "0"
-
-
 setup(name="esitoolsupport",
-      version=get_version(),
+      version='2',
       description="Eucalyptus Service Image Tools",
       long_description="Support for Eucalyptus Service Image Tools",
       author="Vasiliy Kochergin",
