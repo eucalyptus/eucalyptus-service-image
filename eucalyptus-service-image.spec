@@ -1,5 +1,5 @@
 Name:           eucalyptus-service-image
-Version:        2
+Version:        3
 Release:        0%{?dist}
 Summary:        Eucalyptus Service Image
 
@@ -57,6 +57,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Nov  8 2016 Garrett Holmstrom <gholms@hpe.com> - 3
+- Version bump (3)
+
 * Mon Jul 25 2016 Garrett Holmstrom <gholms@hpe.com> - 2
 - Version bump (2)
 
