@@ -49,11 +49,10 @@ class ServiceImageManager(EsiBase):
     IMAGE_NAME = 'eucalyptus-service-image'
     IMAGE_RE = re.compile('^eucalyptus-service-image')
 
-    def __init__(self, region, debug=False):
-        super(self.__class__, self).__init__(region if region else 'localhost')
+    def __init__(self, args):
+        super(self.__class__, self).__init__(args)
         self._ec2 = boto.connect_ec2_endpoint(self.get_env_var('EC2_URL'))
         self._populate_images()
-        self._debug = debug
 
 
     def _populate_images(self):
@@ -84,30 +83,30 @@ class ServiceImageManager(EsiBase):
 
             if should_remove:
                 for image in image_set:
-                    self._run_command(['/usr/bin/euca-deregister', image.id, '--region', self.region], self._debug)
+                    self._run_command(['/usr/bin/euca-deregister', image.id, '--region', self.region])
                     (bucket, prefix) = self._split_location(image.location)
                     self._run_command(['/usr/bin/euca-delete-bundle', '-b', bucket,
-                                       '-p', prefix, '--region', self.region], self._debug)
+                                       '-p', prefix, '--region', self.region])
                     removed.append(image.id)
         return removed
 
-    def _run_command(self, command, debug=False):
-        if debug:
+    def _run_command(self, command):
+        if self.debug:
             command.append('--debug')
             print "Running: {0}".format(" ".join(command))
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if debug:
+        if self.debug:
                 fd = process.stderr
                 fl = fcntl.fcntl(fd, fcntl.F_GETFL)
                 fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
         while process.poll() is None:
-            if debug:
+            if self.debug:
                 try:
                     line = process.stderr.readline()
                     print line.strip()
                 except:
                     pass
-        stderr = process.stderr.read() if not debug else "SEE OUTPUT ABOVE"
+        stderr = process.stderr.read() if not self.debug else "SEE OUTPUT ABOVE"
         stdout = process.stdout.read()
         if process.returncode > 0:
             print "Error: Unable to install imaging worker due to:\n" \
@@ -167,7 +166,7 @@ class ServiceImageManager(EsiBase):
         if self.get_env_var('EUCA_BOOTSTRAP_URL') is None:
             cmd.append('--ec2cert')
             cmd.append(self.get_env_var('EUCALYPTUS_CERT'))
-        bundle_stdout, bundle_stderr = self._run_command(cmd, self._debug)
+        bundle_stdout, bundle_stderr = self._run_command(cmd)
         # HACK: Popping the second to
         #       last line off of install (ie the IMAGE line)
         emi_id = bundle_stdout.split('\n')[-2].split().pop()
@@ -229,14 +228,11 @@ if __name__ == "__main__":
     parser.add_argument('--force', action='store_true', help='''Force
                         an operation. This will force removal of
                         enabled Service images.''')
-    parser.add_argument('--debug', help='Show debugging output', action='store_true')
     parser.add_argument('--force-version', help=argparse.SUPPRESS)
-    parser.add_argument('--region', metavar='REGION', help=('region '
-                                                            'name to search when looking up config file data'))
+    EsiBase.add_arguments(parser)
 
-    args = parser.parse_args()
-    ism = ServiceImageManager(args.region if args.region is not None else os.getenv("AWS_DEFAULT_REGION"),
-                              args.debug)
+    args, unknown = parser.parse_known_args()
+    ism = ServiceImageManager(args)
 
     if args.tarball:
         image_name = "{0}-v{1}".format(ServiceImageManager.IMAGE_NAME, args.force_version)

@@ -31,8 +31,8 @@ class ServiceImageManager(EsiBase):
     IMAGE_NAME = 'eucalyptus-service-image'
     IMAGE_RE = re.compile('^eucalyptus-service-image')
 
-    def __init__(self, region):
-        super(self.__class__, self).__init__(region if region else 'localhost')
+    def __init__(self, args):
+        super(self.__class__, self).__init__(args)
         self._ec2 = boto.connect_ec2_endpoint(self.get_env_var('EC2_URL'))
         self._sts = self.get_sts_connection()
         self._system_accounts = self.list_system_accounts()
@@ -115,9 +115,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description=description)
     parser.add_argument('--show-instances', action='store_true', help='')
-    parser.add_argument('--region', metavar='REGION', help=('region '
-                                                            'name to search when looking up config file data'))
-    args = parser.parse_args()
 
-    ism = ServiceImageManager(args.region if args.region is not None else os.getenv("AWS_DEFAULT_REGION"))
+    EsiBase.add_arguments(parser)
+    args, unknown = parser.parse_known_args()
+
+    ism = ServiceImageManager(args)
     ism.list(show_instances=args.show_instances)
