@@ -24,12 +24,32 @@ from boto.sts import STSConnection
 
 
 class EsiBase(object):
-    def __init__(self, region='localhost'):
+    def __init__(self, args):
         self.vars = {}
-        self.region = region
+        self.args = args
+        def_region = os.getenv("AWS_DEFAULT_REGION")
+        self.region = args.region if args.region is not None else 'localhost' if def_region is None else def_region
+        self.debug = args.debug
+        if self.debug:
+            print "Using {0} region".format(self.region)
         self._load_vars()
-        self.check_environment()
         self._set_environment()
+
+
+    @staticmethod
+    def add_arguments(parser):
+        parser.add_argument('--region', metavar='REGION', help=('region '
+                                                                'name to search when looking up config file data'))
+        parser.add_argument('--debug', help='Show debugging output', action='store_true')
+        parser.add_argument('-I', metavar='KEY_ID', help="user's access key id")
+        parser.add_argument('-S', metavar='KEY', help="user's secret key id")
+        parser.add_argument('--ec2_url', metavar='EC2_URL', help="URL to EC2 service")
+        parser.add_argument('--t_url', metavar='TOKEN_URL', help="URL to TOKEN service")
+        parser.add_argument('--cf_url', metavar='AWS_CLOUDFORMATION_URL', help="URL to CLOUDFORMATION service")
+        parser.add_argument('--eb_url', metavar='EUCA_BOOTSTRAP_URL', help="URL to BOOTSTRAP service")
+        parser.add_argument('--ep_url', metavar='EUCA_PROPERTIES_URL', help="URL to PROPERTIES service")
+        parser.add_argument('--ec_path', metavar='EUCALYPTUS_CERT', help="Path to EUCALYPTUS certificate")
+        parser.add_argument('--iam_url', metavar='AWS_IAM_URL', help="URL to IAM service")
 
     def get_sts_connection(self):
         token_url = urlparse(self.vars['TOKEN_URL'])
@@ -45,7 +65,9 @@ class EsiBase(object):
 
     def list_system_accounts(self):
         accounts = {}
-        process = subprocess.Popen(['/usr/bin/euare-accountlist', '-U', self.vars['AWS_IAM_URL']],
+        process = subprocess.Popen(['/usr/bin/euare-accountlist', '-U', self.vars['AWS_IAM_URL'],
+                                    '-I', self.vars['AWS_ACCESS_KEY_ID'],
+                                    '-S', self.vars['AWS_SECRET_ACCESS_KEY']],
                                    stdout=subprocess.PIPE)
         for line in process.stdout:
             split = line.strip().split(None, 1)
@@ -64,13 +86,26 @@ class EsiBase(object):
                 v = var.split("=")
                 if len(v) == 2:
                     self.vars[v[0]] = v[1] if v[1] != '' else None
+        opts = vars(self.args)
+        VAR_NAMES = {'EUCA_PROPERTIES_URL': 'ep_url',
+                     'TOKEN_URL': 't_url',
+                     'AWS_CLOUDFORMATION_URL': 'cf_url',
+                     'EUCA_BOOTSTRAP_URL': 'eb_url',
+                     'EUCALYPTUS_CERT': 'ec_path',
+                     'AWS_IAM_URL': 'iam_url',
+                     'AWS_ACCESS_KEY_ID': 'I',
+                     'AWS_SECRET_ACCESS_KEY': 'S',
+                     'EC2_URL': 'ec2_url'}
+        for k, v in VAR_NAMES.items():
+            if self.get_env_var(k) is None and v in opts:
+                self.vars[k] = opts[v]
+        if self.debug:
+            print "Current settings {0}".format(self.vars)
+        # time to check vars
         self.check_environment()
         # assume eucalyptus account since this is a system tool
         if self.get_env_var('EC2_USER_ID') is None:
             self.vars['EC2_USER_ID'] = self.list_system_accounts()['eucalyptus']
-        # if EUCA_PROPERTIES_URL is not set let's assume that the command is invoked on CLC
-        if self.get_env_var('EUCA_PROPERTIES_URL') is None:
-            self.vars['EUCA_PROPERTIES_URL'] = 'http://127.0.0.1:8773/services/Properties/'
 
     @staticmethod
     def _check_binary(binary):
@@ -84,9 +119,9 @@ class EsiBase(object):
 
     def check_environment(self):
         if self.vars["EC2_URL"] is None or \
-                        self.vars["AWS_ACCESS_KEY_ID"] is None or \
-                        self.vars["AWS_SECRET_ACCESS_KEY"] is None or \
-                        self.vars["AWS_IAM_URL"] is None:
+                self.vars["AWS_ACCESS_KEY_ID"] is None or \
+                self.vars["AWS_SECRET_ACCESS_KEY"] is None or \
+                self.vars["AWS_IAM_URL"] is None:
             print >> sys.stderr, "Error: Unable to find EC2_URL, AWS_IAM_URL, " \
                                  "AWS_ACCESS_KEY_ID, or AWS_SECRET_ACCESS_KEY"
             print >> sys.stderr, "Make sure your environment is properly configured."

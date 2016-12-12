@@ -27,11 +27,10 @@ from esitoolsupport.esibase import EsiBase
 
 
 class StackManager(EsiBase):
-    SETTING_PER_STACK = {'imaging': ['image'],
-                         'database': ['volume', 'image']}
+    SETTING_PER_STACK = {'imaging': ['image']}
 
-    def __init__(self, region):
-        super(self.__class__, self).__init__(region if region else 'localhost')
+    def __init__(self, args):
+        super(self.__class__, self).__init__(args)
 
     def set_property(self, value, stack):
         service_property = 'services.{0}.worker.configured'.format(stack)
@@ -147,17 +146,14 @@ if __name__ == "__main__":
                                      description=description)
     parser.add_argument('-a', '--action', help='Action to take (create, check or delete) for the service image stack',
                         choices=['create', 'delete', 'check'])
-    parser.add_argument('stack', help='Service image stack name (imaging or database)',
-                        choices=['imaging', 'database'])
-    parser.add_argument('--region', metavar='REGION', help=('region '
-                                                            'name to search when looking up config file data'))
+    EsiBase.add_arguments(parser)
 
-    args = parser.parse_args()
-    sm = StackManager(args.region if args.region is not None else os.getenv("AWS_DEFAULT_REGION"))
+    args, unknown = parser.parse_known_args()
+    sm = StackManager(args)
 
     if args.action == 'create':
-        sm.enable(args.stack)
+        sm.enable('imaging')
     elif args.action == 'delete':
-        sm.disable(args.stack)
+        sm.disable('imaging')
     elif args.action == 'check':
-        sm.check(args.stack)
+        sm.check('imaging')
